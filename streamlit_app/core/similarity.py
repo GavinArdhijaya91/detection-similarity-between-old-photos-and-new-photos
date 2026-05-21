@@ -1,21 +1,5 @@
-"""
-core/similarity.py
-==================
-Metrik kemiripan antara dua representasi wajah dalam eigenspace.
-
-Konsep Aljabar Linear:
-- Cosine Similarity: cos(θ) = (a·b)/(‖a‖‖b‖)
-- Euclidean Distance: d = ‖a - b‖₂
-- Normalized Cross-Correlation
-"""
-
 import numpy as np
 from typing import Tuple, Dict
-
-
-# ─────────────────────────────────────────────
-# Threshold & Level
-# ─────────────────────────────────────────────
 
 THRESHOLDS = {
     "identical"   : 0.95,  # Hampir pasti sama, foto digital identik
@@ -25,27 +9,9 @@ THRESHOLDS = {
     # di bawah 0.55 → dianggap berbeda
 }
 
-DECISION_THRESHOLD = 0.70  # Default threshold untuk "orang yang sama"
-
-
-# ─────────────────────────────────────────────
-# Metrik Kemiripan
-# ─────────────────────────────────────────────
+DECISION_THRESHOLD = 0.70 
 
 def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    """
-    Cosine Similarity antara dua vektor.
-    
-    cos(θ) = (a · b) / (‖a‖₂ · ‖b‖₂)
-    
-    Nilai:
-    - 1.0  → vektor identik (sudut 0°)
-    - 0.0  → ortogonal (sudut 90°)
-    - -1.0 → berlawanan arah (sudut 180°)
-    
-    Keunggulan: tidak sensitif terhadap magnitude (skala),
-    hanya melihat arah vektor — cocok untuk eigenspace projection.
-    """
     a_flat = a.flatten().astype(float)
     b_flat = b.flatten().astype(float)
     
@@ -57,45 +23,22 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     
     dot_product = np.dot(a_flat, b_flat)
     similarity = dot_product / (norm_a * norm_b)
-    
-    # Clamp ke [-1, 1] untuk menghindari floating point error
+
     return float(np.clip(similarity, -1.0, 1.0))
 
 
 def euclidean_distance(a: np.ndarray, b: np.ndarray) -> float:
-    """
-    Euclidean Distance antara dua vektor.
-    
-    d = ‖a - b‖₂ = sqrt(Σ(aᵢ - bᵢ)²)
-    
-    Catatan: makin kecil jarak, makin mirip.
-    Perlu dinormalisasi untuk interpretasi yang bermakna.
-    """
     a_flat = a.flatten().astype(float)
     b_flat = b.flatten().astype(float)
     return float(np.linalg.norm(a_flat - b_flat))
 
 
 def normalized_euclidean_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    """
-    Ubah Euclidean Distance menjadi similarity score [0, 1].
-    
-    similarity = 1 / (1 + distance)
-    
-    - distance = 0 → similarity = 1.0 (identik)
-    - distance → ∞ → similarity → 0.0
-    """
     dist = euclidean_distance(a, b)
     return float(1.0 / (1.0 + dist))
 
 
 def structural_similarity_pixels(img1: np.ndarray, img2: np.ndarray) -> float:
-    """
-    Structural Similarity (SSIM) sederhana antara dua gambar yang sudah di-resize sama.
-    Dihitung dari pixel langsung (bukan eigenspace).
-    
-    SSIM = (2μ₁μ₂ + C₁)(2σ₁₂ + C₂) / (μ₁² + μ₂² + C₁)(σ₁² + σ₂² + C₂)
-    """
     img1 = img1.flatten().astype(float)
     img2 = img2.flatten().astype(float)
     
@@ -114,34 +57,18 @@ def structural_similarity_pixels(img1: np.ndarray, img2: np.ndarray) -> float:
     ssim = numerator / denominator if denominator != 0 else 0.0
     return float(np.clip(ssim, 0.0, 1.0))
 
-
-# ─────────────────────────────────────────────
-# Composite Score & Keputusan
-# ─────────────────────────────────────────────
-
 def compute_all_metrics(
     weights1: np.ndarray,
     weights2: np.ndarray,
     face1_pixel: np.ndarray,
     face2_pixel: np.ndarray,
 ) -> Dict[str, float]:
-    """
-    Hitung semua metrik kemiripan sekaligus.
-    
-    Parameters
-    ----------
-    weights1, weights2 : Proyeksi eigenspace (dari project_to_eigenspace)
-    face1_pixel, face2_pixel : Gambar wajah preprocessed (pixel)
-    """
     cos_sim    = cosine_similarity(weights1, weights2)
     euc_dist   = euclidean_distance(weights1, weights2)
     euc_sim    = normalized_euclidean_similarity(weights1, weights2)
     ssim_score = structural_similarity_pixels(face1_pixel, face2_pixel)
     pixel_cos  = cosine_similarity(face1_pixel, face2_pixel)
-    
-    # Composite score (weighted average)
-    # Cosine similarity di eigenspace adalah metrik paling relevan untuk PCA
-    # Clamp negatif ke 0 — cosine negatif berarti arah berlawanan (sangat berbeda)
+
     composite = (
         0.45 * max(0.0, cos_sim) +
         0.25 * euc_sim +
@@ -163,24 +90,11 @@ def make_decision(
     metrics: Dict[str, float],
     threshold: float = DECISION_THRESHOLD,
 ) -> Dict:
-    """
-    Buat keputusan apakah dua wajah adalah orang yang sama.
-    
-    Parameters
-    ----------
-    metrics   : dict dari compute_all_metrics()
-    threshold : ambang batas composite score
-    
-    Returns
-    -------
-    dict berisi verdict, confidence, level, dan reasoning
-    """
     score = metrics["composite_score"]
     cos   = metrics["cosine_similarity_eigenspace"]
     
     is_same = score >= threshold
-    
-    # Tentukan level kepercayaan
+
     if cos >= THRESHOLDS["identical"]:
         level      = "Identik"
         confidence = "Sangat Tinggi"
@@ -201,8 +115,7 @@ def make_decision(
         level      = "Tidak Mirip"
         confidence = "Sangat Rendah"
         color      = "#ff4444"
-    
-    # Reasoning matematis
+
     reasoning = []
     if cos >= 0.70:
         reasoning.append(f"Cosine similarity eigenspace tinggi ({cos:.2%}) → sudut kecil antara proyeksi kedua wajah")
