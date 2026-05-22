@@ -2,6 +2,7 @@ import json
 import base64
 import numpy as np
 import cv2
+import os
 from io import BytesIO
 from PIL import Image
 from pathlib import Path
@@ -15,6 +16,20 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 TARGET_SIZE = (128, 128)
 HAAR_FRONTAL = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+NPZ_PATH = Path(__file__).parent.parent / "pretrained_eigenspace.npz"
+
+PRETRAINED = None
+if os.path.exists(NPZ_PATH):
+    try:
+        data = np.load(NPZ_PATH)
+        PRETRAINED = {
+            "mean_face": data['mean_face'],
+            "eigenfaces": data['eigenfaces'],
+            "singular_values": data['singular_values'],
+        }
+        print(f"✅ Pretrained model loaded! ({len(PRETRAINED['eigenfaces'])} eigenfaces)")
+    except Exception as e:
+        print(f"❌ Error loading .npz: {e}")
 
 def preprocess_image(image_b64: str):
     img_bytes = base64.b64decode(image_b64.split(",")[-1])
@@ -35,9 +50,8 @@ def preprocess_image(image_b64: str):
         x2, y2 = min(W, x + w + pad), min(H, y + h + pad)
         gray = gray[y1:y2, x1:x2]
 
-    gray       = cv2.equalizeHist(gray)
     resized    = cv2.resize(gray, TARGET_SIZE, interpolation=cv2.INTER_AREA)
-    normalized = resized.astype(np.float64) / 255.0
+    normalized = resized.astype(np.float64)
 
     return normalized, face_detected
 
@@ -47,10 +61,9 @@ def cosine_sim(a, b):
         return 0.0
     return float(np.dot(a, b) / (na * nb))
 
-
 def ssim_simple(img1, img2):
     a, b   = img1.flatten(), img2.flatten()
-    C1, C2 = 0.01**2, 0.03**2
+    C1, C2 = (0.01 * 255)**2, (0.03 * 255)**2
     mu1, mu2   = np.mean(a), np.mean(b)
     s1, s2     = np.var(a), np.var(b)
     s12        = np.mean((a - mu1) * (b - mu2))
@@ -58,29 +71,43 @@ def ssim_simple(img1, img2):
     den = (mu1**2 + mu2**2 + C1) * (s1 + s2 + C2)
     return float(np.clip(num / den if den != 0 else 0, 0, 1))
 
+# ─── Core PCA/SVD Pipeline ────────────────────────────────────────────────────
+
 def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
     f1, f2 = face1.flatten(), face2.flatten()
 
+    # Individual SVDs just for chart visualization (optional, purely visual)
     U1, S1, _  = np.linalg.svd(face1, full_matrices=False)
     U2, S2, _  = np.linalg.svd(face2, full_matrices=False)
 
-    stack      = np.stack([f1, f2], axis=0)
-    mean_face  = np.mean(stack, axis=0)
-    centered   = stack - mean_face
+    if PRETRAINED is not None:
+        # ✅ BENAR: Menggunakan Eigenspace global hasil training raksasa!
+        ef = PRETRAINED["eigenfaces"]
+        mf = PRETRAINED["mean_face"]
+        w1 = ef @ (f1 - mf)
+        w2 = ef @ (f2 - mf)
+        S_joint = PRETRAINED["singular_values"]
+        eigenvalues = (S_joint ** 2) / 2 # dummy approx scale for chart
+    else:
+        # ❌ SALAH: SVD instan hanya dari 2 gambar (fallback jika file tidak ada)
+        stack = np.stack([f1, f2], axis=0)
+        mf = np.mean(stack, axis=0)
+        centered = stack - mf
+        _, S_joint, Vt_joint = np.linalg.svd(centered, full_matrices=False)
+        n_comp = min(2, len(S_joint))
+        ef = Vt_joint[:n_comp]
+        eigenvalues = (S_joint[:n_comp] ** 2) / 2
+        w1 = ef @ (f1 - mf)
+        w2 = ef @ (f2 - mf)
 
-    _, S_joint, Vt_joint = np.linalg.svd(centered, full_matrices=False)
-    n_comp     = min(2, len(S_joint))
-    eigenfaces = Vt_joint[:n_comp]
-    eigenvalues = (S_joint[:n_comp] ** 2) / 2
-
-    w1 = eigenfaces @ (f1 - mean_face)
-    w2 = eigenfaces @ (f2 - mean_face)
-
+    # Similarity scores
     cos_eigen = cosine_sim(w1, w2)
     euc_d     = float(np.linalg.norm(w1 - w2))
     euc_sim   = 1.0 / (1.0 + euc_d)
     ssim      = ssim_simple(face1, face2)
     cos_pixel = cosine_sim(f1, f2)
+    
+    # Composite score formula
     composite = 0.45*max(0, cos_eigen) + 0.25*euc_sim + 0.20*ssim + 0.10*max(0, cos_pixel)
 
     def sv_info(S):
@@ -101,21 +128,24 @@ def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
             "composite_score": round(composite, 4),
         },
         "eigenvalues": [float(v) for v in eigenvalues],
-        "weights_face1": [float(v) for v in w1],
-        "weights_face2": [float(v) for v in w2],
+        "weights_face1": [float(v) for v in w1[:15]], # limit to top 15 for JSON
+        "weights_face2": [float(v) for v in w2[:15]],
         "singular_values_face1": sv_info(S1),
         "singular_values_face2": sv_info(S2),
-        "singular_values_joint": [float(v) for v in S_joint],
+        "singular_values_joint": [float(v) for v in S_joint[:15]],
     }
 
 
 def make_decision(composite: float, cos_eigen: float, threshold: float = 0.70):
     is_same = composite >= threshold
-    if   cos_eigen >= 0.95: level, confidence, color = "Identik",      "Sangat Tinggi", "#10b981"
-    elif cos_eigen >= 0.85: level, confidence, color = "Sangat Mirip", "Tinggi",        "#22c55e"
-    elif cos_eigen >= 0.70: level, confidence, color = "Mirip",        "Sedang",        "#f59e0b"
-    elif cos_eigen >= 0.55: level, confidence, color = "Kurang Mirip", "Rendah",        "#f97316"
-    else:                   level, confidence, color = "Tidak Mirip",  "Sangat Rendah", "#ef4444"
+    
+    # Kalibrasi threshold khusus untuk PCA (karena PCA sangat ketat terhadap variasi piksel)
+    if   composite >= 0.85: level, confidence, color = "Sangat Mirip", "Sangat Tinggi", "#10b981"
+    elif composite >= 0.75: level, confidence, color = "Mirip", "Tinggi", "#22c55e"
+    elif composite >= 0.65: level, confidence, color = "Cukup Mirip", "Sedang", "#f59e0b"
+    elif composite >= 0.50: level, confidence, color = "Kurang Mirip", "Rendah", "#f97316"
+    else:                   level, confidence, color = "Tidak Mirip", "Sangat Rendah", "#ef4444"
+    
     return {
         "is_same_person": bool(is_same),
         "verdict":      "Orang yang Sama" if is_same else "Orang yang Berbeda",
@@ -124,14 +154,20 @@ def make_decision(composite: float, cos_eigen: float, threshold: float = 0.70):
         "threshold_used": threshold,
     }
 
+
+# ─── Routes ───────────────────────────────────────────────────────────────────
+
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 @app.post("/api/analyze")
 async def analyze(request: Request):
     try:
+        if PRETRAINED is None:
+            print("⚠️ Peringatan: pretrained_eigenspace.npz tidak dimuat, akurasi akan buruk!")
+            
         body      = await request.json()
         image1_b64 = body.get("image1")
         image2_b64 = body.get("image2")
