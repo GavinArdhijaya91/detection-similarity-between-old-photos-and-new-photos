@@ -181,9 +181,9 @@ export default function Home() {
 
       <div className="min-h-screen flex flex-col font-inter">
         
-        {/* ── Header ── */}
+        
         <header className="relative pt-16 pb-12 overflow-hidden border-b [border-image:linear-gradient(to_right,transparent,--theme(--color-indigo-500/.25),transparent)1]">
-          {/* Background Elements */}
+          
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] opacity-20 pointer-events-none blur-[100px] bg-indigo-600 rounded-full mix-blend-screen" />
           
           <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10 text-center">
@@ -206,7 +206,7 @@ export default function Home() {
 
         <main className="max-w-6xl mx-auto px-4 sm:px-6 py-12 flex-1 w-full">
           
-          {/* ── Upload Section ── */}
+          
           <section className="mb-12 max-w-4xl mx-auto">
             <div className="flex items-center gap-3 text-lg font-bold text-gray-200 mb-6 after:content-[''] after:flex-1 after:h-px after:bg-gray-800">
               📸 Upload Foto
@@ -217,7 +217,7 @@ export default function Home() {
               <DropZone label="Foto Baru (Saat Ini)"   photo={photo2} onPhoto={setPhoto2} />
             </div>
 
-            {/* Threshold */}
+            
             <div className="mt-6 p-6 rounded-2xl bg-gray-900/50 border border-gray-800 backdrop-blur-sm">
               <div className="flex justify-between items-center mb-3">
                 <span className="text-sm font-semibold text-gray-400">
@@ -238,7 +238,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Analyze Button */}
+            
             <div className="mt-6">
               <button
                 className="w-full inline-flex items-center justify-center whitespace-nowrap rounded-xl text-base font-medium transition-all px-6 py-4 group bg-linear-to-t from-indigo-600 to-indigo-500 bg-[length:100%_100%] bg-[bottom] text-white shadow-[inset_0px_1px_0px_0px_--theme(--color-white/.16)] hover:bg-[length:100%_150%] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -269,16 +269,16 @@ export default function Home() {
             )}
           </section>
 
-          {/* ── Divider ── */}
+          
           {(result || (!result && !loading)) && (
             <div className="border-t py-6 [border-image:linear-gradient(to_right,transparent,--theme(--color-gray-800),transparent)1] md:py-10"></div>
           )}
 
-          {/* ── Results ── */}
+          
           {result && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               
-              {/* Main verdict */}
+              
               <section className="mb-12 max-w-4xl mx-auto">
                 <div className="flex items-center gap-3 text-lg font-bold text-gray-200 mb-6 after:content-[''] after:flex-1 after:h-px after:bg-gray-800">
                   🎯 Hasil Analisis
@@ -313,7 +313,7 @@ export default function Home() {
                 </div>
               </section>
 
-              {/* Detail Metrics Tabs */}
+              
               <section className="mb-12 max-w-5xl mx-auto">
                 <div className="flex items-center gap-3 text-lg font-bold text-gray-200 mb-6 after:content-[''] after:flex-1 after:h-px after:bg-gray-800">
                   📊 Detail Analisis
@@ -321,7 +321,7 @@ export default function Home() {
 
                 <div className="p-6 md:p-8 rounded-3xl bg-gray-900/50 border border-gray-800/80 backdrop-blur-sm">
                   
-                  {/* Tabs using Secondary Button Style */}
+                  
                   <div className="flex gap-3 border-b border-gray-800 pb-5 mb-8 overflow-x-auto">
                     {(['metrics', 'svd', 'math'] as const).map((tab) => {
                       const isActive = activeTab === tab;
@@ -341,7 +341,7 @@ export default function Home() {
                     })}
                   </div>
 
-                  {/* Tab: Metrics */}
+                  
                   {activeTab === 'metrics' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                       <div>
@@ -370,7 +370,7 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* Tab: SVD */}
+                  
                   {activeTab === 'svd' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                       <div className="col-span-1 lg:col-span-2">
@@ -398,7 +398,7 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* Tab: Math */}
+                  
                   {activeTab === 'math' && (
                     <div className="flex flex-col gap-6">
                       {[
@@ -419,7 +419,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* ── Placeholder ── */}
+          
           {!result && !loading && (
             <div className="py-20 text-center animate-in fade-in duration-700">
               <div className="text-5xl mb-6 opacity-80 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]">🧬</div>
@@ -433,7 +433,7 @@ export default function Home() {
           )}
         </main>
         
-        {/* Footer */}
+        
         <footer className="py-6 text-center text-xs font-medium text-gray-500 border-t border-gray-800/50">
           Implementasi Aljabar Linear · Next.js · Tailwind CSS v4
         </footer>

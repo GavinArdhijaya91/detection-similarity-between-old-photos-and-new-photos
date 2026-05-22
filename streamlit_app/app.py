@@ -41,23 +41,22 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-    --bg-primary: #030712; /* gray-950 */
-    --bg-card: rgba(17, 24, 39, 0.4); /* gray-900/40 */
-    --bg-card2: rgba(31, 41, 55, 0.5); /* gray-800/50 */
-    --accent-blue: #4f46e5; /* indigo-600 */
-    --accent-purple: #6366f1; /* indigo-500 */
-    --accent-cyan: #818cf8; /* indigo-400 */
+    --bg-primary: #030712;
+    --bg-card: rgba(17, 24, 39, 0.4);
+    --bg-card2: rgba(31, 41, 55, 0.5);
+    --accent-blue: #4f46e5;
+    --accent-purple: #6366f1;
+    --accent-cyan: #818cf8;
     --accent-green: #10b981; 
-    --text-primary: #e5e7eb; /* gray-200 */
-    --text-secondary: #9ca3af; /* gray-400 */
-    --text-muted: #6b7280; /* gray-500 */
-    --border: rgba(31, 41, 55, 1); /* gray-800 */
+    --text-primary: #e5e7eb;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
+    --border: rgba(31, 41, 55, 1);
 }
 
 html, body, .stApp { background: var(--bg-primary) !important; font-family: 'Inter', sans-serif; }
 .main .block-container { padding: 1.5rem 2rem 3rem; max-width: 1200px; }
 
-/* Animated Gradient */
 @keyframes gradient {
     to { background-position: 200% center; }
 }
@@ -135,7 +134,6 @@ html, body, .stApp { background: var(--bg-primary) !important; font-family: 'Int
 .progress-bar-bg { background: rgba(31, 41, 55, 0.5); border: 1px solid rgba(31, 41, 55, 1); border-radius: 50px; height: 8px; overflow: hidden; }
 .progress-bar-fill { height: 100%; border-radius: 50px; transition: width 0.7s ease-out; }
 
-/* Button Modern Gradient */
 .stButton > button {
     background: linear-gradient(to top, var(--accent-blue), var(--accent-purple)) !important;
     color: white !important; border: none !important; border-radius: 12px !important;
@@ -148,7 +146,6 @@ html, body, .stApp { background: var(--bg-primary) !important; font-family: 'Int
 h1,h2,h3,h4 { color: var(--text-primary) !important; font-weight: 700 !important; tracking: -0.02em !important; }
 p { color: var(--text-secondary) !important; }
 
-/* Custom Sidebar */
 [data-testid="stSidebar"] { background: #030712 !important; border-right: 1px solid var(--border) !important; }
 [data-testid="stFileUploader"] { 
     background: rgba(17, 24, 39, 0.4) !important; 

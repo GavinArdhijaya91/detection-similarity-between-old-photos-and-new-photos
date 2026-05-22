@@ -71,7 +71,6 @@ def load_custom_selfie_dataset(base_path: str, target_size: Tuple[int, int] = (6
     target_names = []
     person_id = 0
     
-    # Loop over subdirectories (1, 2, 3...)
     for entry in sorted(os.listdir(base_path)):
         person_dir = os.path.join(base_path, entry)
         if not os.path.isdir(person_dir):
@@ -79,7 +78,6 @@ def load_custom_selfie_dataset(base_path: str, target_size: Tuple[int, int] = (6
             
         target_names.append(entry)
         
-        # Check docs and selfies subdirectories
         for sub in ['docs', 'selfies']:
             sub_dir = os.path.join(person_dir, sub)
             if not os.path.isdir(sub_dir):
@@ -90,10 +88,8 @@ def load_custom_selfie_dataset(base_path: str, target_size: Tuple[int, int] = (6
                     img_path = os.path.join(sub_dir, fname)
                     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
                     if img is not None:
-                        # Auto detect and crop face
                         proc_face, info = preprocess_face(img, detect=True)
                         if proc_face is not None:
-                            # Resize to expected target_size
                             resized = cv2.resize(proc_face, target_size)
                             images_list.append(resized.flatten())
                             targets.append(person_id)
