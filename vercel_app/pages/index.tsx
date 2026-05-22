@@ -1,19 +1,9 @@
-// pages/index.tsx
-// ──────────────────────────────────────────────────────────────
-// FaceMatch PCA/SVD — Main Page (Next.js + Vercel)
-// Deteksi Kemiripan Foto Lama vs Foto Baru
-// ──────────────────────────────────────────────────────────────
-
 import Head from 'next/head';
 import { useState, useCallback, useRef } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, ReferenceLine, Legend,
 } from 'recharts';
-
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
 
 interface AnalysisResult {
   success: boolean;
@@ -49,19 +39,15 @@ interface AnalysisResult {
   };
 }
 
-// ─────────────────────────────────────────────
-// Components
-// ─────────────────────────────────────────────
-
 function ProgressBar({ value, color, label }: { value: number; color: string; label: string }) {
   const pct = Math.max(0, Math.min(1, value)) * 100;
-  const displayColor = pct >= 70 ? '#10b981' : pct >= 55 ? '#f59e0b' : '#ef4444';
+  const displayColor = pct >= 70 ? '#059669' : pct >= 55 ? '#d97706' : '#dc2626';
   const c = color || displayColor;
 
   return (
     <div className="progress-container">
       <div className="progress-label">
-        <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>{label}</span>
+        <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>{label}</span>
         <span style={{ color: c, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '0.8rem' }}>
           {pct.toFixed(1)}%
         </span>
@@ -69,7 +55,7 @@ function ProgressBar({ value, color, label }: { value: number; color: string; la
       <div className="progress-track">
         <div
           className="progress-fill"
-          style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${c}88, ${c})` }}
+          style={{ width: `${pct}%`, background: c }}
         />
       </div>
     </div>
@@ -112,7 +98,7 @@ function DropZone({
       </div>
 
       {photo ? (
-        <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', border: '2px solid rgba(139,92,246,0.5)', cursor: 'pointer' }}
+        <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', border: '2px solid rgba(124,58,237,0.5)', cursor: 'pointer' }}
              onClick={() => inputRef.current?.click()}>
           <img src={photo} alt={label} style={{ width: '100%', height: 220, objectFit: 'cover', display: 'block' }} />
           <div style={{
@@ -157,11 +143,6 @@ function DropZone({
   );
 }
 
-
-// ─────────────────────────────────────────────
-// Main Page
-// ─────────────────────────────────────────────
-
 const DARK_CHART = {
   backgroundColor: '#111827',
   gridColor: '#1e293b',
@@ -202,7 +183,7 @@ export default function Home() {
 
   const isSame = result?.decision.is_same_person;
   const score  = result?.metrics.composite_score ?? 0;
-  const scoreColor = score >= 0.70 ? '#10b981' : score >= 0.55 ? '#f59e0b' : '#ef4444';
+  const scoreColor = score >= 0.70 ? '#059669' : score >= 0.55 ? '#d97706' : '#dc2626';
 
   return (
     <>
@@ -217,15 +198,15 @@ export default function Home() {
         {/* ── Header ── */}
         <header style={{
           padding: '2rem 1.5rem',
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)',
-          borderBottom: '1px solid rgba(139,92,246,0.2)',
+          background: '#212a3a',
+          borderBottom: '1px solid rgba(124,58,237,0.2)',
           position: 'relative',
           overflow: 'hidden',
         }}>
-          {/* Glow effects */}
+          {/* Decorative algebraic symbols */}
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'radial-gradient(circle at 30% 50%, rgba(139,92,246,0.12) 0%, transparent 60%), radial-gradient(circle at 70% 50%, rgba(59,130,246,0.08) 0%, transparent 60%)',
+            background: 'radial-gradient(circle at 30% 50%, rgba(124,58,237,0.04) 0%, transparent 70%), radial-gradient(circle at 70% 50%, rgba(59,130,246,0.03) 0%, transparent 70%)',
             pointerEvents: 'none',
           }} />
 
@@ -233,7 +214,7 @@ export default function Home() {
             <h1 className="gradient-text" style={{ marginBottom: '0.4rem' }}>
               🔬 FaceMatch — PCA &amp; SVD
             </h1>
-            <p style={{ fontSize: '1rem', marginBottom: '1rem', color: '#94a3b8' }}>
+            <p style={{ fontSize: '1rem', marginBottom: '1rem', color: '#a0aec0' }}>
               Deteksi Kemiripan Foto Lama vs Foto Baru · Implementasi Eigenfaces Aljabar Linear
             </p>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -257,10 +238,10 @@ export default function Home() {
             {/* Threshold */}
             <div className="glass-card" style={{ padding: '1.25rem 1.5rem', marginTop: '1.25rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#6b7280' }}>
                   ⚖️ Ambang Batas Kemiripan (Threshold)
                 </span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#a78bfa', fontWeight: 700, fontSize: '0.9rem' }}>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#d8b4fe', fontWeight: 700, fontSize: '0.9rem' }}>
                   {(threshold * 100).toFixed(0)}%
                 </span>
               </div>
@@ -268,9 +249,9 @@ export default function Home() {
                 type="range" min={0.40} max={0.95} step={0.01}
                 value={threshold}
                 onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                style={{ width: '100%', accentColor: '#8b5cf6', cursor: 'pointer', height: 4 }}
+                style={{ width: '100%', accentColor: '#7c3aed', cursor: 'pointer', height: 4 }}
               />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#475569', marginTop: '0.3rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#4b5563', marginTop: '0.3rem' }}>
                 <span>40% (Longgar)</span><span>70% (Default)</span><span>95% (Ketat)</span>
               </div>
             </div>
@@ -293,7 +274,7 @@ export default function Home() {
             {error && (
               <div style={{
                 marginTop: '1rem', padding: '0.75rem 1rem', borderRadius: 12,
-                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.3)',
                 color: '#fca5a5', fontSize: '0.85rem',
               }}>
                 ❌ {error}
@@ -334,7 +315,7 @@ export default function Home() {
                   </div>
 
                   {/* Deteksi info */}
-                  <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', gap: '1rem', fontSize: '0.78rem', color: '#475569' }}>
+                  <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', gap: '1rem', fontSize: '0.78rem', color: '#4b5563' }}>
                     <span>{result.preprocessing.face1_detected ? '✅' : '⚠️'} Foto Lama: {result.preprocessing.face1_detected ? 'Wajah terdeteksi' : 'Gambar penuh'}</span>
                     <span>{result.preprocessing.face2_detected ? '✅' : '⚠️'} Foto Baru: {result.preprocessing.face2_detected ? 'Wajah terdeteksi' : 'Gambar penuh'}</span>
                     <span>📐 Ukuran: {result.preprocessing.image_size}</span>
@@ -363,7 +344,7 @@ export default function Home() {
                   {activeTab === 'metrics' && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                       <div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#64748b', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#4b5563', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                           Metrik Eigenspace (PCA)
                         </div>
                         <ProgressBar value={Math.max(0, result.metrics.cosine_similarity_eigenspace)} label="Cosine Similarity (Eigenspace)" color="" />
@@ -375,7 +356,7 @@ export default function Home() {
                       </div>
 
                       <div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#64748b', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#4b5563', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                           Metrik Pixel
                         </div>
                         <ProgressBar value={result.metrics.ssim_pixel} label="SSIM (Structural Similarity)" color="" />
@@ -385,23 +366,23 @@ export default function Home() {
 
                       {/* Eigenspace 2D scatter */}
                       <div style={{ gridColumn: '1/-1' }}>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#64748b', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#4b5563', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                           Proyeksi Eigenspace 2D
                         </div>
-                        <div style={{ background: '#111827', borderRadius: 12, padding: '1.25rem', height: 260, position: 'relative' }}>
+                        <div style={{ background: '#1a212f', borderRadius: 12, padding: '1.25rem', height: 260, position: 'relative' }}>
                           {/* SVG mini scatter plot */}
                           <svg width="100%" height="100%" viewBox="0 0 500 220" style={{ overflow: 'visible' }}>
                             {/* Grid */}
                             {[0.2,0.4,0.6,0.8].map(r => (
-                              <line key={r} x1={r*500} y1={0} x2={r*500} y2={220} stroke="#1e293b" strokeWidth={1} />
+                              <line key={r} x1={r*500} y1={0} x2={r*500} y2={220} stroke="#2a3f5f" strokeWidth={1} />
                             ))}
                             {[0.25,0.5,0.75].map(r => (
-                              <line key={r} x1={0} y1={r*220} x2={500} y2={r*220} stroke="#1e293b" strokeWidth={1} />
+                              <line key={r} x1={0} y1={r*220} x2={500} y2={r*220} stroke="#2a3f5f" strokeWidth={1} />
                             ))}
 
                             {/* Axis labels */}
-                            <text x={250} y={216} textAnchor="middle" fill="#475569" fontSize={11}>Eigenface Component 1 (PC1)</text>
-                            <text x={10} y={110} textAnchor="middle" fill="#475569" fontSize={11} transform="rotate(-90,10,110)">PC2</text>
+                            <text x={250} y={216} textAnchor="middle" fill="#4b5563" fontSize={11}>Eigenface Component 1 (PC1)</text>
+                            <text x={10} y={110} textAnchor="middle" fill="#4b5563" fontSize={11} transform="rotate(-90,10,110)">PC2</text>
 
                             {(() => {
                               const w1 = result.math_data.weights_face1;
@@ -424,21 +405,21 @@ export default function Home() {
                               return (
                                 <>
                                   {/* Connection line */}
-                                  <line x1={x1} y1={y1s} x2={x2} y2={y2s} stroke="#475569" strokeWidth={1.5} strokeDasharray="5,3" />
+                                  <line x1={x1} y1={y1s} x2={x2} y2={y2s} stroke="#4b5563" strokeWidth={1.5} strokeDasharray="5,3" />
 
                                   {/* Points */}
                                   <circle cx={x1} cy={y1s} r={9} fill="#3b82f6" stroke="#93c5fd" strokeWidth={2} />
-                                  <circle cx={x2} cy={y2s} r={9} fill="#8b5cf6" stroke="#c4b5fd" strokeWidth={2} />
+                                  <circle cx={x2} cy={y2s} r={9} fill="#7c3aed" stroke="#d8b4fe" strokeWidth={2} />
 
                                   {/* Labels */}
                                   <text x={x1+13} y={y1s+4} fill="#93c5fd" fontSize={11} fontWeight={700}>Foto Lama</text>
-                                  <text x={x2+13} y={y2s+4} fill="#c4b5fd" fontSize={11} fontWeight={700}>Foto Baru</text>
+                                  <text x={x2+13} y={y2s+4} fill="#d8b4fe" fontSize={11} fontWeight={700}>Foto Baru</text>
 
                                   {/* Coords */}
-                                  <text x={x1} y={y1s-14} fill="#64748b" fontSize={9} textAnchor="middle">
+                                  <text x={x1} y={y1s-14} fill="#4b5563" fontSize={9} textAnchor="middle">
                                     ({w1[0].toFixed(3)}, {w1[1].toFixed(3)})
                                   </text>
-                                  <text x={x2} y={y2s+20} fill="#64748b" fontSize={9} textAnchor="middle">
+                                  <text x={x2} y={y2s+20} fill="#4b5563" fontSize={9} textAnchor="middle">
                                     ({w2[0].toFixed(3)}, {w2[1].toFixed(3)})
                                   </text>
                                 </>
@@ -455,7 +436,7 @@ export default function Home() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                       {/* Chart singular values */}
                       <div style={{ gridColumn: '1/-1' }}>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#64748b', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#4b5563', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                           Singular Values σ per Gambar
                         </div>
                         <div style={{ background: '#111827', borderRadius: 12, padding: '1rem', height: 260 }}>
@@ -465,16 +446,16 @@ export default function Home() {
                               foto_lama: d.value,
                               foto_baru: result.math_data.singular_values_face2[i]?.value ?? 0,
                             }))}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                              <XAxis dataKey="rank" stroke="#475569" tick={{ fill: '#475569', fontSize: 11 }} label={{ value: 'Rank', position: 'insideBottom', fill: '#475569', fontSize: 11, offset: -2 }} />
-                              <YAxis stroke="#475569" tick={{ fill: '#475569', fontSize: 11 }} />
+                              <CartesianGrid strokeDasharray="3 3" stroke="#2a3f5f" />
+                              <XAxis dataKey="rank" stroke="#4b5563" tick={{ fill: '#4b5563', fontSize: 11 }} label={{ value: 'Rank', position: 'insideBottom', fill: '#4b5563', fontSize: 11, offset: -2 }} />
+                              <YAxis stroke="#4b5563" tick={{ fill: '#4b5563', fontSize: 11 }} />
                               <Tooltip
-                                contentStyle={{ background: '#1a2235', border: '1px solid #2d3748', borderRadius: 8, color: '#f1f5f9', fontSize: 12 }}
+                                contentStyle={{ background: '#212a3a', border: '1px solid #2a3f5f', borderRadius: 8, color: '#f5f7fa', fontSize: 12 }}
                                 formatter={(v: any, name: string) => [typeof v === 'number' ? v.toFixed(2) : v, name === 'foto_lama' ? '📷 Foto Lama' : '📱 Foto Baru']}
                               />
                               <Legend formatter={(v) => v === 'foto_lama' ? '📷 Foto Lama' : '📱 Foto Baru'} />
                               <Line type="monotone" dataKey="foto_lama" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: '#3b82f6' }} name="foto_lama" />
-                              <Line type="monotone" dataKey="foto_baru" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3, fill: '#8b5cf6' }} name="foto_baru" />
+                              <Line type="monotone" dataKey="foto_baru" stroke="#7c3aed" strokeWidth={2} dot={{ r: 3, fill: '#7c3aed' }} name="foto_baru" />
                             </LineChart>
                           </ResponsiveContainer>
                         </div>
@@ -482,10 +463,10 @@ export default function Home() {
 
                       {/* Cumulative variance */}
                       <div style={{ gridColumn: '1/-1' }}>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#64748b', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#4b5563', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                           Cumulative Explained Variance (%)
                         </div>
-                        <div style={{ background: '#111827', borderRadius: 12, padding: '1rem', height: 240 }}>
+                        <div style={{ background: '#1a212f', borderRadius: 12, padding: '1rem', height: 240 }}>
                           <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={result.math_data.singular_values_face1.map((d, i) => {
                               const sv1 = result.math_data.singular_values_face1;
@@ -496,15 +477,15 @@ export default function Home() {
                               const cum2 = sv2.slice(0, i+1).reduce((s, x) => s + x.value**2/total2*100, 0);
                               return { rank: d.rank, foto_lama: cum1, foto_baru: cum2 };
                             })}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                              <XAxis dataKey="rank" stroke="#475569" tick={{ fill: '#475569', fontSize: 11 }} />
-                              <YAxis stroke="#475569" tick={{ fill: '#475569', fontSize: 11 }} domain={[0, 100]} />
-                              <Tooltip contentStyle={{ background: '#1a2235', border: '1px solid #2d3748', borderRadius: 8, color: '#f1f5f9', fontSize: 12 }}
+                              <CartesianGrid strokeDasharray="3 3" stroke="#2a3f5f" />
+                              <XAxis dataKey="rank" stroke="#4b5563" tick={{ fill: '#4b5563', fontSize: 11 }} />
+                              <YAxis stroke="#4b5563" tick={{ fill: '#4b5563', fontSize: 11 }} domain={[0, 100]} />
+                              <Tooltip contentStyle={{ background: '#212a3a', border: '1px solid #2a3f5f', borderRadius: 8, color: '#f5f7fa', fontSize: 12 }}
                                 formatter={(v: any) => [`${typeof v === 'number' ? v.toFixed(1) : v}%`]} />
                               <Legend formatter={(v) => v === 'foto_lama' ? '📷 Foto Lama' : '📱 Foto Baru'} />
-                              <ReferenceLine y={95} stroke="#ef4444" strokeDasharray="4 3" label={{ value: '95%', fill: '#ef4444', fontSize: 10 }} />
-                              <Line type="monotone" dataKey="foto_lama" stroke="#10b981" strokeWidth={2} dot={false} name="foto_lama" />
-                              <Line type="monotone" dataKey="foto_baru" stroke="#f59e0b" strokeWidth={2} dot={false} name="foto_baru" />
+                              <ReferenceLine y={95} stroke="#dc2626" strokeDasharray="4 3" label={{ value: '95%', fill: '#dc2626', fontSize: 10 }} />
+                              <Line type="monotone" dataKey="foto_lama" stroke="#059669" strokeWidth={2} dot={false} name="foto_lama" />
+                              <Line type="monotone" dataKey="foto_baru" stroke="#d97706" strokeWidth={2} dot={false} name="foto_baru" />
                             </LineChart>
                           </ResponsiveContainer>
                         </div>
@@ -516,21 +497,21 @@ export default function Home() {
                         { title: '📱 Foto Baru — Top 10 Singular Values', data: result.math_data.singular_values_face2.slice(0,10) },
                       ].map(({ title, data }) => (
                         <div key={title}>
-                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#64748b', marginBottom: '0.5rem' }}>{title}</div>
-                          <div style={{ background: '#111827', borderRadius: 12, overflow: 'hidden' }}>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#4b5563', marginBottom: '0.5rem' }}>{title}</div>
+                          <div style={{ background: '#1a212f', borderRadius: 12, overflow: 'hidden' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                               <thead>
-                                <tr style={{ borderBottom: '1px solid #1e293b' }}>
+                                <tr style={{ borderBottom: '1px solid #2a3f5f' }}>
                                   {['Rank', 'σ (Singular Value)', 'Variance %'].map(h => (
-                                    <th key={h} style={{ padding: '0.6rem 0.75rem', textAlign: 'left', color: '#475569', fontWeight: 600 }}>{h}</th>
+                                    <th key={h} style={{ padding: '0.6rem 0.75rem', textAlign: 'left', color: '#4b5563', fontWeight: 600 }}>{h}</th>
                                   ))}
                                 </tr>
                               </thead>
                               <tbody>
                                 {data.map((row) => (
-                                  <tr key={row.rank} style={{ borderBottom: '1px solid #1a2235' }}>
-                                    <td style={{ padding: '0.5rem 0.75rem', color: '#94a3b8' }}>{row.rank}</td>
-                                    <td style={{ padding: '0.5rem 0.75rem', fontFamily: "'JetBrains Mono', monospace", color: '#c4b5fd' }}>{row.value.toFixed(3)}</td>
+                                  <tr key={row.rank} style={{ borderBottom: '1px solid #212a3a' }}>
+                                    <td style={{ padding: '0.5rem 0.75rem', color: '#a0aec0' }}>{row.rank}</td>
+                                    <td style={{ padding: '0.5rem 0.75rem', fontFamily: "'JetBrains Mono', monospace", color: '#d8b4fe' }}>{row.value.toFixed(3)}</td>
                                     <td style={{ padding: '0.5rem 0.75rem', color: '#6ee7b7' }}>{row.variance_pct.toFixed(2)}%</td>
                                   </tr>
                                 ))}
@@ -546,7 +527,7 @@ export default function Home() {
                   {activeTab === 'math' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                       <div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f5f7fa', marginBottom: '0.5rem' }}>
                           🔢 SVD Decomposition: A = U Σ Vᵀ
                         </div>
                         <div className="math-block">{`# Gambar wajah direpresentasikan sebagai matriks 128×128
@@ -566,7 +547,7 @@ A (128×128) = U (128×128) × Σ (128×128) × Vᵀ (128×128)
                       </div>
 
                       <div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f5f7fa', marginBottom: '0.5rem' }}>
                           📊 PCA — Eigenvalue & Eigenface
                         </div>
                         <div className="math-block">{`# Matriks kovarians gabungan kedua gambar:
@@ -582,7 +563,7 @@ A (128×128) = U (128×128) × Σ (128×128) × Vᵀ (128×128)
                       </div>
 
                       <div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f5f7fa', marginBottom: '0.5rem' }}>
                           🎯 Proyeksi & Similarity
                         </div>
                         <div className="math-block">{`# Proyeksi ke eigenspace:
@@ -618,16 +599,16 @@ score = 0.45×${result.metrics.cosine_similarity_eigenspace.toFixed(4)} + 0.25×
           {!result && !loading && (
             <div className="fade-in" style={{
               textAlign: 'center', padding: '4rem 2rem',
-              background: '#111827', borderRadius: 20,
-              border: '2px dashed rgba(139,92,246,0.25)',
+              background: '#1a212f', borderRadius: 20,
+              border: '2px dashed rgba(124,58,237,0.25)',
             }}>
               <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🔬</div>
-              <h2 style={{ color: '#e2e8f0', marginBottom: '0.5rem', fontSize: '1.3rem' }}>
+              <h2 style={{ color: '#f5f7fa', marginBottom: '0.5rem', fontSize: '1.3rem' }}>
                 Upload Dua Foto untuk Memulai
               </h2>
-              <p style={{ maxWidth: 450, margin: '0 auto', color: '#475569', fontSize: '0.9rem' }}>
-                Upload <strong style={{ color: '#a78bfa' }}>Foto Lama</strong> (masa kecil) dan{' '}
-                <strong style={{ color: '#60a5fa' }}>Foto Baru</strong> (saat ini) untuk mendeteksi
+              <p style={{ maxWidth: 450, margin: '0 auto', color: '#4b5563', fontSize: '0.9rem' }}>
+                Upload <strong style={{ color: '#d8b4fe' }}>Foto Lama</strong> (masa kecil) dan{' '}
+                <strong style={{ color: '#93c5fd' }}>Foto Baru</strong> (saat ini) untuk mendeteksi
                 kemiripan menggunakan algoritma <strong style={{ color: '#6ee7b7' }}>PCA & SVD (Eigenfaces)</strong>.
               </p>
               <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '2rem', flexWrap: 'wrap' }}>
@@ -646,7 +627,7 @@ score = 0.45×${result.metrics.cosine_similarity_eigenspace.toFixed(4)} + 0.25×
         <footer style={{
           textAlign: 'center', padding: '1.5rem',
           borderTop: '1px solid rgba(255,255,255,0.05)',
-          color: '#334155', fontSize: '0.8rem',
+          color: '#4b5563', fontSize: '0.8rem',
         }}>
           🎓 Tugas Mata Kuliah Aljabar Linear · Semester 2 · Implementasi PCA &amp; SVD (Eigenfaces) · NumPy · OpenCV
         </footer>

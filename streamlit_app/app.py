@@ -1,12 +1,3 @@
-"""
-app.py -- Streamlit App (UPGRADED dengan Dataset)
-===================================================
-Deteksi Kemiripan Foto Lama vs Foto Baru
-Menggunakan PCA & SVD + Dataset Olivetti/LFW
-
-Mata Kuliah: Aljabar Linear -- Semester 2
-"""
-
 import streamlit as st
 import numpy as np
 import matplotlib
@@ -37,20 +28,12 @@ from core.face_utils import (
 from core.similarity import compute_all_metrics, make_decision
 from PIL import Image
 
-# ─────────────────────────────────────────────
-# Konfigurasi Halaman
-# ─────────────────────────────────────────────
-
 st.set_page_config(
     page_title="FaceMatch PCA/SVD + Dataset",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-# ─────────────────────────────────────────────
-# Custom CSS
-# ─────────────────────────────────────────────
 
 st.markdown("""
 <style>
@@ -271,7 +254,7 @@ def get_eigenspace_lfw(k):
     if data is None:
         return None, None
     eigenspace = build_eigenspace_from_dataset(data["images"], n_components=k,
-                                                target_size=data["image_shape"])
+    target_size=data["image_shape"])
     return data, eigenspace
 
 use_dataset = "Tanpa Dataset" not in dataset_choice

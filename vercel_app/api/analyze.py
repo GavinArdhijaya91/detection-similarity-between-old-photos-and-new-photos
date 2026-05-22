@@ -1,10 +1,3 @@
-"""
-api/analyze.py
-==============
-Vercel Python Serverless Function
-Menerima dua gambar base64, jalankan PCA/SVD, return hasil JSON.
-"""
-
 import json
 import base64
 import sys
@@ -14,25 +7,15 @@ import cv2
 from io import BytesIO
 from PIL import Image
 
-# ─────────────────────────────────────────────
-# Konstanta
-# ─────────────────────────────────────────────
 TARGET_SIZE = (128, 128)
 HAAR_FRONTAL = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 
-
-# ─────────────────────────────────────────────
-# Preprocessing
-# ─────────────────────────────────────────────
-
 def preprocess_image(image_b64: str) -> np.ndarray:
-    """Decode base64 image → grayscale → resize → normalize."""
     img_bytes = base64.b64decode(image_b64.split(",")[-1])
     pil_img = Image.open(BytesIO(img_bytes)).convert("RGB")
     np_img = np.array(pil_img)
     gray = cv2.cvtColor(np_img, cv2.COLOR_RGB2GRAY)
-    
-    # Deteksi wajah
+
     face_cascade = cv2.CascadeClassifier(HAAR_FRONTAL)
     faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(30,30))
     
@@ -52,21 +35,14 @@ def preprocess_image(image_b64: str) -> np.ndarray:
     
     return normalized, face_detected
 
-
-# ─────────────────────────────────────────────
-# PCA / SVD Core
-# ─────────────────────────────────────────────
-
 def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
     """Run full PCA/SVD pipeline on two faces."""
     f1 = face1.flatten()
     f2 = face2.flatten()
-    
-    # SVD per gambar
+
     U1, S1, Vt1 = np.linalg.svd(face1, full_matrices=False)
     U2, S2, Vt2 = np.linalg.svd(face2, full_matrices=False)
-    
-    # Stack → eigenfaces
+
     images_stack = np.stack([f1, f2], axis=0)
     mean_face = np.mean(images_stack, axis=0)
     centered = images_stack - mean_face
@@ -76,12 +52,10 @@ def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
     n_comp = min(2, len(S_joint))
     eigenfaces = Vt_joint[:n_comp]
     eigenvalues = (S_joint[:n_comp] ** 2) / 2
-    
-    # Proyeksi
+
     w1 = eigenfaces @ (f1 - mean_face)
     w2 = eigenfaces @ (f2 - mean_face)
-    
-    # Similarity metrics
+
     def cosine_sim(a, b):
         na, nb = np.linalg.norm(a), np.linalg.norm(b)
         if na == 0 or nb == 0: return 0.0
@@ -106,8 +80,7 @@ def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
     ssim = ssim_simple(face1, face2)
     cos_pixel = cosine_sim(f1, f2)
     composite = 0.45*max(0, cos_eigen) + 0.25*euc_sim + 0.20*ssim + 0.10*max(0, cos_pixel)
-    
-    # SVD info
+
     def sv_info(S):
         total = np.sum(S**2)
         return [
@@ -159,13 +132,7 @@ def make_decision(composite_score: float, cos_eigen: float, threshold: float = 0
         "threshold_used": threshold,
     }
 
-
-# ─────────────────────────────────────────────
-# Handler
-# ─────────────────────────────────────────────
-
 def handler(request, response):
-    """Vercel Python serverless handler."""
     
     if request.method == "OPTIONS":
         response.headers["Access-Control-Allow-Origin"] = "*"
