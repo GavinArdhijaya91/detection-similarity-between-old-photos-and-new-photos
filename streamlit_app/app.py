@@ -17,6 +17,7 @@ from core.pca_svd import (
     reconstruct_from_eigenspace,
     load_olivetti_dataset,
     load_lfw_dataset,
+    load_custom_selfie_dataset,
     build_eigenspace_from_dataset,
     analyze_two_faces_with_dataset,
     analyze_two_faces,
@@ -216,7 +217,7 @@ with st.sidebar:
 
     dataset_choice = st.radio(
         "Pilih dataset training:",
-        ["Olivetti Faces (Direkomendasikan)", "LFW (Labeled Faces in the Wild)", "Tanpa Dataset (2 gambar saja)"],
+        ["Dataset Lokal (Selfie & ID)", "Olivetti Faces (Direkomendasikan)", "LFW (Labeled Faces in the Wild)", "Tanpa Dataset (2 gambar saja)"],
         index=0,
         help="Dataset digunakan untuk membangun eigenspace yang lebih kaya"
     )
@@ -275,13 +276,27 @@ def get_eigenspace_lfw(k):
     target_size=data["image_shape"])
     return data, eigenspace
 
+@st.cache_resource(show_spinner=False)
+def get_eigenspace_custom(k):
+    base_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Selfie & id data - public sample")
+    data = load_custom_selfie_dataset(base_path, target_size=(128, 128))
+    if data is None:
+        return None, None
+    eigenspace = build_eigenspace_from_dataset(data["images"], n_components=k, target_size=(128, 128))
+    return data, eigenspace
+
 use_dataset = "Tanpa Dataset" not in dataset_choice
 dataset_data = None
 eigenspace   = None
 
 if use_dataset:
     with st.spinner("Memuat dataset & membangun eigenspace..."):
-        if "Olivetti" in dataset_choice:
+        if "Lokal" in dataset_choice:
+            dataset_data, eigenspace = get_eigenspace_custom(n_components)
+            if eigenspace is None:
+                st.warning("Dataset lokal tidak ditemukan. Beralih ke Olivetti.")
+                dataset_data, eigenspace = get_eigenspace_olivetti(n_components)
+        elif "Olivetti" in dataset_choice:
             dataset_data, eigenspace = get_eigenspace_olivetti(n_components)
         else:
             dataset_data, eigenspace = get_eigenspace_lfw(n_components)
