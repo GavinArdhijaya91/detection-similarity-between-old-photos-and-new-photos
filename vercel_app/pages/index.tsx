@@ -41,21 +41,21 @@ interface AnalysisResult {
 
 function ProgressBar({ value, color, label }: { value: number; color: string; label: string }) {
   const pct = Math.max(0, Math.min(1, value)) * 100;
-  const displayColor = pct >= 70 ? '#059669' : pct >= 55 ? '#d97706' : '#dc2626';
-  const c = color || displayColor;
-
+  const displayColor = pct >= 70 ? 'bg-emerald-500' : pct >= 55 ? 'bg-amber-500' : 'bg-red-500';
+  const textDisplayColor = pct >= 70 ? 'text-emerald-500' : pct >= 55 ? 'text-amber-500' : 'text-red-500';
+  
   return (
-    <div className="progress-container">
-      <div className="progress-label">
-        <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>{label}</span>
-        <span style={{ color: c, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '0.8rem' }}>
+    <div className="my-3">
+      <div className="flex justify-between items-center mb-1.5 text-xs">
+        <span className="text-gray-400">{label}</span>
+        <span className={`${textDisplayColor} font-mono font-bold`}>
           {pct.toFixed(1)}%
         </span>
       </div>
-      <div className="progress-track">
+      <div className="h-2 rounded-full bg-gray-800/50 overflow-hidden border border-gray-800">
         <div
-          className="progress-fill"
-          style={{ width: `${pct}%`, background: c }}
+          className={`h-full rounded-full transition-all duration-700 ease-out ${displayColor}`}
+          style={{ width: `${pct}%` }}
         />
       </div>
     </div>
@@ -92,43 +92,37 @@ function DropZone({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b' }}>
+    <div className="flex flex-col gap-2">
+      <div className="text-xs font-bold tracking-widest uppercase text-indigo-200/65">
         {label}
       </div>
 
       {photo ? (
-        <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', border: '2px solid rgba(124,58,237,0.5)', cursor: 'pointer' }}
-             onClick={() => inputRef.current?.click()}>
-          <img src={photo} alt={label} style={{ width: '100%', height: 220, objectFit: 'cover', display: 'block' }} />
-          <div style={{
-            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'background 0.3s',
-          }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.5)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0)')}
-          >
-            <span style={{ color: 'white', fontSize: '0.85rem', fontWeight: 600, opacity: 0, transition: 'opacity 0.3s' }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
-            >
+        <div 
+          className="relative rounded-2xl overflow-hidden border-2 border-indigo-500/50 cursor-pointer group"
+          onClick={() => inputRef.current?.click()}
+        >
+          <img src={photo} alt={label} className="w-full h-[220px] object-cover block" />
+          <div className="absolute inset-0 bg-transparent flex items-center justify-center transition-colors duration-300 group-hover:bg-black/50">
+            <span className="text-white text-sm font-semibold opacity-0 transition-opacity duration-300 group-hover:opacity-100">
               Ganti Foto
             </span>
           </div>
         </div>
       ) : (
         <div
-          className={`dropzone ${dragging ? 'drag-over' : ''}`}
+          className={`border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-6 min-h-[220px] text-center select-none cursor-pointer transition-all duration-300
+            ${dragging 
+              ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_20px_rgba(99,102,241,0.1)]' 
+              : 'border-indigo-500/30 bg-gray-900/40 hover:border-indigo-500/60 hover:bg-indigo-500/5'}`}
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
-          style={{ minHeight: 220 }}
         >
-          <div className="dropzone-icon">📷</div>
-          <div className="dropzone-title">Klik atau Drag & Drop</div>
-          <div className="dropzone-hint">PNG, JPG, WEBP • Maks 10MB</div>
+          <div className="text-4xl mb-3 opacity-70">📷</div>
+          <div className="text-sm font-semibold text-gray-200 mb-1">Klik atau Drag & Drop</div>
+          <div className="text-xs text-gray-400">PNG, JPG, WEBP • Maks 10MB</div>
         </div>
       )}
 
@@ -136,18 +130,12 @@ function DropZone({
         ref={inputRef}
         type="file"
         accept="image/*"
-        style={{ display: 'none' }}
+        className="hidden"
         onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
       />
     </div>
   );
 }
-
-const DARK_CHART = {
-  backgroundColor: '#111827',
-  gridColor: '#1e293b',
-  textColor: '#94a3b8',
-};
 
 export default function Home() {
   const [photo1, setPhoto1] = useState<string | null>(null);
@@ -183,65 +171,59 @@ export default function Home() {
 
   const isSame = result?.decision.is_same_person;
   const score  = result?.metrics.composite_score ?? 0;
-  const scoreColor = score >= 0.70 ? '#059669' : score >= 0.55 ? '#d97706' : '#dc2626';
+  const scoreColor = score >= 0.70 ? 'text-emerald-500' : score >= 0.55 ? 'text-amber-500' : 'text-red-500';
 
   return (
     <>
       <Head>
-        <title>FaceMatch PCA/SVD — Deteksi Kemiripan Foto | Aljabar Linear</title>
-        <meta name="description" content="Deteksi kemiripan antara foto lama dan foto baru menggunakan PCA dan SVD (Eigenfaces). Implementasi konsep Aljabar Linear: eigenvalue, eigenvector, cosine similarity." />
-        <meta property="og:title" content="FaceMatch PCA/SVD — Deteksi Kemiripan Foto" />
-        <meta property="og:description" content="Implementasi Eigenfaces menggunakan PCA & SVD untuk deteksi kemiripan wajah" />
+        <title>FaceMatch PCA/SVD — Deteksi Kemiripan Foto</title>
       </Head>
 
-      <div className="page-wrapper">
+      <div className="min-h-screen flex flex-col font-inter">
+        
         {/* ── Header ── */}
-        <header style={{
-          padding: '2rem 1.5rem',
-          background: '#212a3a',
-          borderBottom: '1px solid rgba(124,58,237,0.2)',
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
-          {/* Decorative algebraic symbols */}
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'radial-gradient(circle at 30% 50%, rgba(124,58,237,0.04) 0%, transparent 70%), radial-gradient(circle at 70% 50%, rgba(59,130,246,0.03) 0%, transparent 70%)',
-            pointerEvents: 'none',
-          }} />
-
-          <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-            <h1 className="gradient-text" style={{ marginBottom: '0.4rem' }}>
-              🔬 FaceMatch — PCA &amp; SVD
+        <header className="relative pt-16 pb-12 overflow-hidden border-b [border-image:linear-gradient(to_right,transparent,--theme(--color-indigo-500/.25),transparent)1]">
+          {/* Background Elements */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] opacity-20 pointer-events-none blur-[100px] bg-indigo-600 rounded-full mix-blend-screen" />
+          
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10 text-center">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl animate-[gradient_6s_linear_infinite] bg-[linear-gradient(to_right,var(--color-gray-200),var(--color-indigo-200),var(--color-gray-50),var(--color-indigo-300),var(--color-gray-200))] bg-[length:200%_auto] bg-clip-text text-transparent font-bold tracking-tight mb-4">
+              FaceMatch <span className="opacity-50">/</span> PCA & SVD
             </h1>
-            <p style={{ fontSize: '1rem', marginBottom: '1rem', color: '#a0aec0' }}>
-              Deteksi Kemiripan Foto Lama vs Foto Baru · Implementasi Eigenfaces Aljabar Linear
+            <p className="text-lg text-indigo-200/65 max-w-2xl mx-auto mb-8 font-medium">
+              Deteksi Kemiripan Foto Lama vs Foto Baru menggunakan implementasi Eigenfaces Aljabar Linear.
             </p>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {['📐 Aljabar Linear', '🧮 Eigenvalue & Eigenvector', '🔢 SVD Decomposition', '📊 PCA Projection', '📏 Cosine Similarity'].map((b, i) => (
-                <span key={i} className={`badge ${['badge-purple','badge-blue','badge-cyan','badge-blue','badge-purple'][i]}`}>{b}</span>
+            
+            <div className="flex flex-wrap justify-center gap-2">
+              {['📐 Aljabar Linear', '🧮 Eigenvalue', '🔢 SVD', '📊 PCA'].map((b, i) => (
+                <span key={i} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                  {b}
+                </span>
               ))}
             </div>
           </div>
         </header>
 
-        <main className="container" style={{ padding: '2rem 1.5rem', flex: 1 }}>
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 py-12 flex-1 w-full">
+          
           {/* ── Upload Section ── */}
-          <section style={{ marginBottom: '2rem' }}>
-            <div className="section-title">📸 Upload Foto</div>
+          <section className="mb-12 max-w-4xl mx-auto">
+            <div className="flex items-center gap-3 text-lg font-bold text-gray-200 mb-6 after:content-[''] after:flex-1 after:h-px after:bg-gray-800">
+              📸 Upload Foto
+            </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-              <DropZone label="📷 Foto Lama (Masa Kecil)" photo={photo1} onPhoto={setPhoto1} />
-              <DropZone label="📱 Foto Baru (Saat Ini)"   photo={photo2} onPhoto={setPhoto2} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <DropZone label="Foto Lama (Masa Kecil)" photo={photo1} onPhoto={setPhoto1} />
+              <DropZone label="Foto Baru (Saat Ini)"   photo={photo2} onPhoto={setPhoto2} />
             </div>
 
             {/* Threshold */}
-            <div className="glass-card" style={{ padding: '1.25rem 1.5rem', marginTop: '1.25rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#6b7280' }}>
+            <div className="mt-6 p-6 rounded-2xl bg-gray-900/50 border border-gray-800 backdrop-blur-sm">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-sm font-semibold text-gray-400">
                   ⚖️ Ambang Batas Kemiripan (Threshold)
                 </span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#d8b4fe', fontWeight: 700, fontSize: '0.9rem' }}>
+                <span className="font-mono text-indigo-300 font-bold text-sm">
                   {(threshold * 100).toFixed(0)}%
                 </span>
               </div>
@@ -249,345 +231,187 @@ export default function Home() {
                 type="range" min={0.40} max={0.95} step={0.01}
                 value={threshold}
                 onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                style={{ width: '100%', accentColor: '#7c3aed', cursor: 'pointer', height: 4 }}
+                className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
               />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#4b5563', marginTop: '0.3rem' }}>
+              <div className="flex justify-between text-xs text-gray-500 mt-2 font-medium">
                 <span>40% (Longgar)</span><span>70% (Default)</span><span>95% (Ketat)</span>
               </div>
             </div>
 
             {/* Analyze Button */}
-            <button
-              className="btn btn-primary"
-              style={{ marginTop: '1rem', width: '100%', fontSize: '1rem', padding: '0.8rem' }}
-              onClick={handleAnalyze}
-              disabled={!photo1 || !photo2 || loading}
-            >
-              {loading ? (
-                <>
-                  <div className="spinner" />
-                  Menganalisis SVD & PCA...
-                </>
-              ) : '🔍 Analisis Kemiripan'}
-            </button>
+            <div className="mt-6">
+              <button
+                className="w-full inline-flex items-center justify-center whitespace-nowrap rounded-xl text-base font-medium transition-all px-6 py-4 group bg-linear-to-t from-indigo-600 to-indigo-500 bg-[length:100%_100%] bg-[bottom] text-white shadow-[inset_0px_1px_0px_0px_--theme(--color-white/.16)] hover:bg-[length:100%_150%] disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleAnalyze}
+                disabled={!photo1 || !photo2 || loading}
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Menganalisis SVD & PCA...
+                  </span>
+                ) : (
+                  <span className="relative inline-flex items-center">
+                    🔍 Analisis Kemiripan
+                    <span className="ml-1 tracking-normal text-white/50 transition-transform group-hover:translate-x-0.5">-&gt;</span>
+                  </span>
+                )}
+              </button>
+            </div>
 
             {error && (
-              <div style={{
-                marginTop: '1rem', padding: '0.75rem 1rem', borderRadius: 12,
-                background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.3)',
-                color: '#fca5a5', fontSize: '0.85rem',
-              }}>
+              <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium">
                 ❌ {error}
               </div>
             )}
           </section>
 
+          {/* ── Divider ── */}
+          {(result || (!result && !loading)) && (
+            <div className="border-t py-6 [border-image:linear-gradient(to_right,transparent,--theme(--color-gray-800),transparent)1] md:py-10"></div>
+          )}
+
           {/* ── Results ── */}
           {result && (
-            <div className="fade-in">
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              
               {/* Main verdict */}
-              <section style={{ marginBottom: '2rem' }}>
-                <div className="section-title">🎯 Hasil Analisis</div>
+              <section className="mb-12 max-w-4xl mx-auto">
+                <div className="flex items-center gap-3 text-lg font-bold text-gray-200 mb-6 after:content-[''] after:flex-1 after:h-px after:bg-gray-800">
+                  🎯 Hasil Analisis
+                </div>
 
-                <div className={`glass-card ${isSame ? 'result-same pulse-green' : 'result-diff pulse-red'}`}
-                     style={{ padding: '2.5rem', textAlign: 'center', borderRadius: 20 }}>
-                  <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>
+                <div className={`p-10 text-center rounded-3xl border bg-gray-900/40 backdrop-blur-md transition-all duration-700
+                    ${isSame 
+                      ? 'border-emerald-500/30 shadow-[0_0_40px_-10px_rgba(16,185,129,0.2)]' 
+                      : 'border-red-500/30 shadow-[0_0_40px_-10px_rgba(239,68,68,0.2)]'}`}
+                >
+                  <div className="text-6xl mb-4 drop-shadow-md">
                     {result.decision.verdict_icon}
                   </div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: isSame ? '#10b981' : '#ef4444', marginBottom: '0.3rem' }}>
+                  <div className={`text-2xl md:text-3xl font-black mb-2 tracking-tight ${isSame ? 'text-emerald-400' : 'text-red-400'}`}>
                     {result.decision.verdict}
                   </div>
-                  <div style={{ fontSize: '3.5rem', fontWeight: 900, color: scoreColor, lineHeight: 1, margin: '0.5rem 0' }}>
+                  <div className={`text-6xl md:text-7xl font-black my-4 leading-none tracking-tighter ${scoreColor}`}>
                     {(score * 100).toFixed(1)}%
                   </div>
-                  <div style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '1rem' }}>Composite Similarity Score</div>
-
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    <span className={`badge ${isSame ? 'badge-green' : 'badge-red'}`}>
-                      {result.decision.level}
-                    </span>
-                    <span className="badge badge-purple">
-                      Kepercayaan: {result.decision.confidence}
-                    </span>
-                    <span className="badge badge-blue">
-                      Threshold: {(result.decision.threshold_used * 100).toFixed(0)}%
-                    </span>
+                  <div className="text-gray-400 text-sm font-medium mb-6 uppercase tracking-widest">
+                    Composite Similarity Score
                   </div>
 
-                  {/* Deteksi info */}
-                  <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', gap: '1rem', fontSize: '0.78rem', color: '#4b5563' }}>
-                    <span>{result.preprocessing.face1_detected ? '✅' : '⚠️'} Foto Lama: {result.preprocessing.face1_detected ? 'Wajah terdeteksi' : 'Gambar penuh'}</span>
-                    <span>{result.preprocessing.face2_detected ? '✅' : '⚠️'} Foto Baru: {result.preprocessing.face2_detected ? 'Wajah terdeteksi' : 'Gambar penuh'}</span>
-                    <span>📐 Ukuran: {result.preprocessing.image_size}</span>
+                  <div className="flex justify-center gap-3 flex-wrap">
+                    <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border ${isSame ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                      {result.decision.level}
+                    </span>
+                    <span className="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                      Kepercayaan: {result.decision.confidence}
+                    </span>
                   </div>
                 </div>
               </section>
 
               {/* Detail Metrics Tabs */}
-              <section style={{ marginBottom: '2rem' }}>
-                <div className="section-title">📊 Detail Analisis</div>
+              <section className="mb-12 max-w-5xl mx-auto">
+                <div className="flex items-center gap-3 text-lg font-bold text-gray-200 mb-6 after:content-[''] after:flex-1 after:h-px after:bg-gray-800">
+                  📊 Detail Analisis
+                </div>
 
-                <div className="glass-card" style={{ padding: '1.5rem' }}>
-                  <div className="tabs">
-                    {(['metrics', 'svd', 'math'] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
-                        onClick={() => setActiveTab(tab)}
-                      >
-                        {{ metrics: '📏 Metrik Kemiripan', svd: '📉 Singular Values', math: '🔢 Matematika' }[tab]}
-                      </button>
-                    ))}
+                <div className="p-6 md:p-8 rounded-3xl bg-gray-900/50 border border-gray-800/80 backdrop-blur-sm">
+                  
+                  {/* Tabs using Secondary Button Style */}
+                  <div className="flex gap-3 border-b border-gray-800 pb-5 mb-8 overflow-x-auto">
+                    {(['metrics', 'svd', 'math'] as const).map((tab) => {
+                      const isActive = activeTab === tab;
+                      return (
+                        <button
+                          key={tab}
+                          className={`inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-semibold transition-all px-5 py-2.5 relative 
+                            ${isActive 
+                              ? 'bg-linear-to-b from-gray-800 to-gray-800/60 bg-[length:100%_100%] bg-[bottom] text-gray-100 before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:border before:border-transparent before:[background:linear-gradient(to_right,var(--color-gray-700),var(--color-gray-600),var(--color-gray-700))_border-box] before:[mask-composite:exclude_!important] before:[mask:linear-gradient(white_0_0)_padding-box,_linear-gradient(white_0_0)]' 
+                              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+                            }`}
+                          onClick={() => setActiveTab(tab)}
+                        >
+                          {{ metrics: '📏 Metrik Kemiripan', svd: '📉 Singular Values', math: '🔢 Matematika' }[tab]}
+                        </button>
+                      );
+                    })}
                   </div>
 
                   {/* Tab: Metrics */}
                   {activeTab === 'metrics' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                       <div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#4b5563', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        <div className="text-xs font-bold text-indigo-300 mb-4 uppercase tracking-widest flex items-center gap-2">
+                          <svg className="fill-indigo-400" xmlns="http://www.w3.org/2000/svg" width={16} height={16} viewBox="0 0 24 24"><path d="M0 0h14v17H0V0Zm2 2v13h10V2H2Z" /><path fillOpacity=".48" d="m16.295 5.393 7.528 2.034-4.436 16.412L5.87 20.185l.522-1.93 11.585 3.132 3.392-12.55-5.597-1.514.522-1.93Z" /></svg>
                           Metrik Eigenspace (PCA)
                         </div>
                         <ProgressBar value={Math.max(0, result.metrics.cosine_similarity_eigenspace)} label="Cosine Similarity (Eigenspace)" color="" />
                         <ProgressBar value={result.metrics.euclidean_similarity_norm} label="Euclidean Similarity (Normalized)" color="" />
-                        <div className="metric-row">
-                          <span className="metric-name">Euclidean Distance</span>
-                          <span className="metric-value">{result.metrics.euclidean_distance_eigenspace.toFixed(4)}</span>
+                        
+                        <div className="flex justify-between items-center py-3 border-b border-gray-800/50 mt-4 text-sm">
+                          <span className="text-gray-400 font-medium">Euclidean Distance</span>
+                          <span className="font-mono text-gray-200 font-bold">{result.metrics.euclidean_distance_eigenspace.toFixed(4)}</span>
                         </div>
                       </div>
 
                       <div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#4b5563', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        <div className="text-xs font-bold text-indigo-300 mb-4 uppercase tracking-widest flex items-center gap-2">
+                          <svg className="fill-indigo-400" xmlns="http://www.w3.org/2000/svg" width={16} height={16} viewBox="0 0 24 24"><path d="M0 0h14v17H0V0Zm2 2v13h10V2H2Z" /><path fillOpacity=".48" d="m16.295 5.393 7.528 2.034-4.436 16.412L5.87 20.185l.522-1.93 11.585 3.132 3.392-12.55-5.597-1.514.522-1.93Z" /></svg>
                           Metrik Pixel
                         </div>
                         <ProgressBar value={result.metrics.ssim_pixel} label="SSIM (Structural Similarity)" color="" />
                         <ProgressBar value={Math.max(0, result.metrics.cosine_similarity_pixel)} label="Cosine Similarity (Pixel)" color="" />
-                        <ProgressBar value={result.metrics.composite_score} label="Composite Score (Final)" color={scoreColor} />
-                      </div>
-
-                      {/* Eigenspace 2D scatter */}
-                      <div style={{ gridColumn: '1/-1' }}>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#4b5563', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                          Proyeksi Eigenspace 2D
-                        </div>
-                        <div style={{ background: '#1a212f', borderRadius: 12, padding: '1.25rem', height: 260, position: 'relative' }}>
-                          {/* SVG mini scatter plot */}
-                          <svg width="100%" height="100%" viewBox="0 0 500 220" style={{ overflow: 'visible' }}>
-                            {/* Grid */}
-                            {[0.2,0.4,0.6,0.8].map(r => (
-                              <line key={r} x1={r*500} y1={0} x2={r*500} y2={220} stroke="#2a3f5f" strokeWidth={1} />
-                            ))}
-                            {[0.25,0.5,0.75].map(r => (
-                              <line key={r} x1={0} y1={r*220} x2={500} y2={r*220} stroke="#2a3f5f" strokeWidth={1} />
-                            ))}
-
-                            {/* Axis labels */}
-                            <text x={250} y={216} textAnchor="middle" fill="#4b5563" fontSize={11}>Eigenface Component 1 (PC1)</text>
-                            <text x={10} y={110} textAnchor="middle" fill="#4b5563" fontSize={11} transform="rotate(-90,10,110)">PC2</text>
-
-                            {(() => {
-                              const w1 = result.math_data.weights_face1;
-                              const w2 = result.math_data.weights_face2;
-                              if (!w1 || !w2 || w1.length < 2) return null;
-
-                              const allX = [w1[0], w2[0]];
-                              const allY = [w1[1], w2[1]];
-                              const minX = Math.min(...allX); const maxX = Math.max(...allX);
-                              const minY = Math.min(...allY); const maxY = Math.max(...allY);
-                              const rangeX = maxX - minX || 1; const rangeY = maxY - minY || 1;
-                              const pad = 0.2;
-
-                              const px = (v: number) => ((v - minX) / rangeX * (1 - 2*pad) + pad) * 470 + 15;
-                              const py = (v: number) => (1 - (v - minY) / rangeY * (1 - 2*pad) - pad) * 190 + 10;
-
-                              const x1 = px(w1[0]); const y1s = py(w1[1]);
-                              const x2 = px(w2[0]); const y2s = py(w2[1]);
-
-                              return (
-                                <>
-                                  {/* Connection line */}
-                                  <line x1={x1} y1={y1s} x2={x2} y2={y2s} stroke="#4b5563" strokeWidth={1.5} strokeDasharray="5,3" />
-
-                                  {/* Points */}
-                                  <circle cx={x1} cy={y1s} r={9} fill="#3b82f6" stroke="#93c5fd" strokeWidth={2} />
-                                  <circle cx={x2} cy={y2s} r={9} fill="#7c3aed" stroke="#d8b4fe" strokeWidth={2} />
-
-                                  {/* Labels */}
-                                  <text x={x1+13} y={y1s+4} fill="#93c5fd" fontSize={11} fontWeight={700}>Foto Lama</text>
-                                  <text x={x2+13} y={y2s+4} fill="#d8b4fe" fontSize={11} fontWeight={700}>Foto Baru</text>
-
-                                  {/* Coords */}
-                                  <text x={x1} y={y1s-14} fill="#4b5563" fontSize={9} textAnchor="middle">
-                                    ({w1[0].toFixed(3)}, {w1[1].toFixed(3)})
-                                  </text>
-                                  <text x={x2} y={y2s+20} fill="#4b5563" fontSize={9} textAnchor="middle">
-                                    ({w2[0].toFixed(3)}, {w2[1].toFixed(3)})
-                                  </text>
-                                </>
-                              );
-                            })()}
-                          </svg>
-                        </div>
+                        <ProgressBar value={result.metrics.composite_score} label="Composite Score (Final)" color="" />
                       </div>
                     </div>
                   )}
 
                   {/* Tab: SVD */}
                   {activeTab === 'svd' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                      {/* Chart singular values */}
-                      <div style={{ gridColumn: '1/-1' }}>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#4b5563', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div className="col-span-1 lg:col-span-2">
+                        <div className="text-xs font-bold text-indigo-300 mb-4 uppercase tracking-widest">
                           Singular Values σ per Gambar
                         </div>
-                        <div style={{ background: '#111827', borderRadius: 12, padding: '1rem', height: 260 }}>
+                        <div className="bg-gray-950 rounded-2xl p-4 h-[300px] border border-gray-800/60">
                           <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={result.math_data.singular_values_face1.map((d, i) => ({
                               rank: d.rank,
                               foto_lama: d.value,
                               foto_baru: result.math_data.singular_values_face2[i]?.value ?? 0,
                             }))}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#2a3f5f" />
-                              <XAxis dataKey="rank" stroke="#4b5563" tick={{ fill: '#4b5563', fontSize: 11 }} label={{ value: 'Rank', position: 'insideBottom', fill: '#4b5563', fontSize: 11, offset: -2 }} />
-                              <YAxis stroke="#4b5563" tick={{ fill: '#4b5563', fontSize: 11 }} />
-                              <Tooltip
-                                contentStyle={{ background: '#212a3a', border: '1px solid #2a3f5f', borderRadius: 8, color: '#f5f7fa', fontSize: 12 }}
-                                formatter={(v: any, name: string) => [typeof v === 'number' ? v.toFixed(2) : v, name === 'foto_lama' ? '📷 Foto Lama' : '📱 Foto Baru']}
-                              />
-                              <Legend formatter={(v) => v === 'foto_lama' ? '📷 Foto Lama' : '📱 Foto Baru'} />
-                              <Line type="monotone" dataKey="foto_lama" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: '#3b82f6' }} name="foto_lama" />
-                              <Line type="monotone" dataKey="foto_baru" stroke="#7c3aed" strokeWidth={2} dot={{ r: 3, fill: '#7c3aed' }} name="foto_baru" />
+                              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                              <XAxis dataKey="rank" stroke="#6b7280" tick={{ fill: '#6b7280', fontSize: 11 }} />
+                              <YAxis stroke="#6b7280" tick={{ fill: '#6b7280', fontSize: 11 }} />
+                              <Tooltip contentStyle={{ background: '#111827', border: '1px solid #374151', borderRadius: 12, color: '#f3f4f6' }} />
+                              <Legend />
+                              <Line type="monotone" dataKey="foto_lama" stroke="#8b5cf6" strokeWidth={2.5} dot={{ r: 2, fill: '#8b5cf6' }} />
+                              <Line type="monotone" dataKey="foto_baru" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 2, fill: '#3b82f6' }} />
                             </LineChart>
                           </ResponsiveContainer>
                         </div>
                       </div>
-
-                      {/* Cumulative variance */}
-                      <div style={{ gridColumn: '1/-1' }}>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#4b5563', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                          Cumulative Explained Variance (%)
-                        </div>
-                        <div style={{ background: '#1a212f', borderRadius: 12, padding: '1rem', height: 240 }}>
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={result.math_data.singular_values_face1.map((d, i) => {
-                              const sv1 = result.math_data.singular_values_face1;
-                              const sv2 = result.math_data.singular_values_face2;
-                              const total1 = sv1.reduce((s, x) => s + x.value**2, 0);
-                              const total2 = sv2.reduce((s, x) => s + x.value**2, 0);
-                              const cum1 = sv1.slice(0, i+1).reduce((s, x) => s + x.value**2/total1*100, 0);
-                              const cum2 = sv2.slice(0, i+1).reduce((s, x) => s + x.value**2/total2*100, 0);
-                              return { rank: d.rank, foto_lama: cum1, foto_baru: cum2 };
-                            })}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#2a3f5f" />
-                              <XAxis dataKey="rank" stroke="#4b5563" tick={{ fill: '#4b5563', fontSize: 11 }} />
-                              <YAxis stroke="#4b5563" tick={{ fill: '#4b5563', fontSize: 11 }} domain={[0, 100]} />
-                              <Tooltip contentStyle={{ background: '#212a3a', border: '1px solid #2a3f5f', borderRadius: 8, color: '#f5f7fa', fontSize: 12 }}
-                                formatter={(v: any) => [`${typeof v === 'number' ? v.toFixed(1) : v}%`]} />
-                              <Legend formatter={(v) => v === 'foto_lama' ? '📷 Foto Lama' : '📱 Foto Baru'} />
-                              <ReferenceLine y={95} stroke="#dc2626" strokeDasharray="4 3" label={{ value: '95%', fill: '#dc2626', fontSize: 10 }} />
-                              <Line type="monotone" dataKey="foto_lama" stroke="#059669" strokeWidth={2} dot={false} name="foto_lama" />
-                              <Line type="monotone" dataKey="foto_baru" stroke="#d97706" strokeWidth={2} dot={false} name="foto_baru" />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-
-                      {/* Top 10 table */}
-                      {[
-                        { title: '📷 Foto Lama — Top 10 Singular Values', data: result.math_data.singular_values_face1.slice(0,10) },
-                        { title: '📱 Foto Baru — Top 10 Singular Values', data: result.math_data.singular_values_face2.slice(0,10) },
-                      ].map(({ title, data }) => (
-                        <div key={title}>
-                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#4b5563', marginBottom: '0.5rem' }}>{title}</div>
-                          <div style={{ background: '#1a212f', borderRadius: 12, overflow: 'hidden' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
-                              <thead>
-                                <tr style={{ borderBottom: '1px solid #2a3f5f' }}>
-                                  {['Rank', 'σ (Singular Value)', 'Variance %'].map(h => (
-                                    <th key={h} style={{ padding: '0.6rem 0.75rem', textAlign: 'left', color: '#4b5563', fontWeight: 600 }}>{h}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {data.map((row) => (
-                                  <tr key={row.rank} style={{ borderBottom: '1px solid #212a3a' }}>
-                                    <td style={{ padding: '0.5rem 0.75rem', color: '#a0aec0' }}>{row.rank}</td>
-                                    <td style={{ padding: '0.5rem 0.75rem', fontFamily: "'JetBrains Mono', monospace", color: '#d8b4fe' }}>{row.value.toFixed(3)}</td>
-                                    <td style={{ padding: '0.5rem 0.75rem', color: '#6ee7b7' }}>{row.variance_pct.toFixed(2)}%</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   )}
 
                   {/* Tab: Math */}
                   {activeTab === 'math' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                      <div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f5f7fa', marginBottom: '0.5rem' }}>
-                          🔢 SVD Decomposition: A = U Σ Vᵀ
+                    <div className="flex flex-col gap-6">
+                      {[
+                        { title: 'SVD Decomposition: A = U Σ Vᵀ', code: `A (128×128) = U × Σ × Vᵀ\n\nσ (Lama) = [${result.math_data.singular_values_face1.slice(0,4).map(d => d.value.toFixed(2)).join(', ')}, ...]\nσ (Baru) = [${result.math_data.singular_values_face2.slice(0,4).map(d => d.value.toFixed(2)).join(', ')}, ...]` },
+                        { title: 'Cosine Similarity di Eigenspace', code: `cos_sim = ${result.metrics.cosine_similarity_eigenspace.toFixed(6)}\nScore   = ${(result.metrics.composite_score * 100).toFixed(2)}%\nVerdict = ${isSame ? '✅ SAMA' : '❌ BEDA'}` }
+                      ].map((block, i) => (
+                        <div key={i}>
+                          <div className="text-sm font-bold text-gray-200 mb-2">{block.title}</div>
+                          <div className="bg-gray-950 border border-gray-800/80 border-l-4 border-l-indigo-500 rounded-lg p-5 font-mono text-xs text-indigo-200/80 whitespace-pre overflow-x-auto">
+                            {block.code}
+                          </div>
                         </div>
-                        <div className="math-block">{`# Gambar wajah direpresentasikan sebagai matriks 128×128
-# lalu didekomposisi menggunakan SVD:
-
-A (128×128) = U (128×128) × Σ (128×128) × Vᵀ (128×128)
-
-# U  = left singular vectors (kolom = eigenfaces kiri)
-# Σ  = matriks diagonal berisi singular values σ₁ ≥ σ₂ ≥ ... ≥ σₙ
-# Vᵀ = right singular vectors (baris = eigenfaces)
-
-# Singular values foto lama (σ₁, σ₂, σ₃):
-σ = [${result.math_data.singular_values_face1.slice(0,5).map(d => d.value.toFixed(2)).join(', ')}, ...]
-
-# Singular values foto baru (σ₁, σ₂, σ₃):
-σ = [${result.math_data.singular_values_face2.slice(0,5).map(d => d.value.toFixed(2)).join(', ')}, ...]`}</div>
-                      </div>
-
-                      <div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f5f7fa', marginBottom: '0.5rem' }}>
-                          📊 PCA — Eigenvalue & Eigenface
-                        </div>
-                        <div className="math-block">{`# Matriks kovarians gabungan kedua gambar:
-# C = (1/n) AᵀA
-
-# Eigenvalue (λ) menunjukkan seberapa penting setiap komponen:
-λ₁ = ${result.math_data.eigenvalues[0]?.toFixed(6) ?? 'N/A'}   ← Komponen utama
-λ₂ = ${result.math_data.eigenvalues[1]?.toFixed(6) ?? 'N/A'}   ← Komponen sekunder
-
-# Eigenface (v) adalah eigenvector dari matriks kovarians
-# Setiap eigenface adalah "pola dasar" wajah manusia
-# Shape eigenface: (16384,) → direshape ke (128, 128) untuk visualisasi`}</div>
-                      </div>
-
-                      <div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f5f7fa', marginBottom: '0.5rem' }}>
-                          🎯 Proyeksi & Similarity
-                        </div>
-                        <div className="math-block">{`# Proyeksi ke eigenspace:
-# w = eigenfaces @ (face - mean_face)
-
-w₁ (Foto Lama) = [${result.math_data.weights_face1.map(v => v.toFixed(4)).join(', ')}]
-w₂ (Foto Baru) = [${result.math_data.weights_face2.map(v => v.toFixed(4)).join(', ')}]
-
-# Cosine Similarity di Eigenspace:
-# cos(θ) = (w₁ · w₂) / (‖w₁‖ · ‖w₂‖)
-cos_sim  = ${result.metrics.cosine_similarity_eigenspace.toFixed(6)}  → ${(result.metrics.cosine_similarity_eigenspace * 100).toFixed(2)}%
-
-# Euclidean Distance:
-# d = ‖w₁ - w₂‖₂
-euc_dist = ${result.metrics.euclidean_distance_eigenspace.toFixed(6)}
-
-# Composite Score (weighted average):
-# score = 0.45×cos_eigen + 0.25×euc_sim + 0.20×ssim + 0.10×cos_pixel
-score = 0.45×${result.metrics.cosine_similarity_eigenspace.toFixed(4)} + 0.25×${result.metrics.euclidean_similarity_norm.toFixed(4)}
-      + 0.20×${result.metrics.ssim_pixel.toFixed(4)} + 0.10×${result.metrics.cosine_similarity_pixel.toFixed(4)}
-      = ${result.metrics.composite_score.toFixed(4)}  →  ${(result.metrics.composite_score * 100).toFixed(2)}%
-
-# Threshold = ${(threshold * 100).toFixed(0)}%  →  ${isSame ? '✅ ORANG YANG SAMA' : '❌ ORANG YANG BERBEDA'}`}</div>
-                      </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -597,39 +421,21 @@ score = 0.45×${result.metrics.cosine_similarity_eigenspace.toFixed(4)} + 0.25×
 
           {/* ── Placeholder ── */}
           {!result && !loading && (
-            <div className="fade-in" style={{
-              textAlign: 'center', padding: '4rem 2rem',
-              background: '#1a212f', borderRadius: 20,
-              border: '2px dashed rgba(124,58,237,0.25)',
-            }}>
-              <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🔬</div>
-              <h2 style={{ color: '#f5f7fa', marginBottom: '0.5rem', fontSize: '1.3rem' }}>
+            <div className="py-20 text-center animate-in fade-in duration-700">
+              <div className="text-5xl mb-6 opacity-80 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]">🧬</div>
+              <h2 className="text-2xl font-bold text-gray-200 mb-3 tracking-tight">
                 Upload Dua Foto untuk Memulai
               </h2>
-              <p style={{ maxWidth: 450, margin: '0 auto', color: '#4b5563', fontSize: '0.9rem' }}>
-                Upload <strong style={{ color: '#d8b4fe' }}>Foto Lama</strong> (masa kecil) dan{' '}
-                <strong style={{ color: '#93c5fd' }}>Foto Baru</strong> (saat ini) untuk mendeteksi
-                kemiripan menggunakan algoritma <strong style={{ color: '#6ee7b7' }}>PCA & SVD (Eigenfaces)</strong>.
+              <p className="max-w-md mx-auto text-indigo-200/65 text-sm font-medium leading-relaxed">
+                Platform akan mendeteksi kemiripan wajah menggunakan algoritma <strong className="text-indigo-300 font-semibold">PCA & SVD (Eigenfaces)</strong> yang canggih.
               </p>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '2rem', flexWrap: 'wrap' }}>
-                {[['📐', 'SVD Decomposition'], ['🧮', 'Eigenvalue & Eigenvector'], ['📊', 'PCA Projection'], ['📏', 'Cosine Similarity']].map(([icon, text]) => (
-                  <div key={text} style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.8rem' }}>{icon}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '0.3rem' }}>{text}</div>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
         </main>
-
-        {/* ── Footer ── */}
-        <footer style={{
-          textAlign: 'center', padding: '1.5rem',
-          borderTop: '1px solid rgba(255,255,255,0.05)',
-          color: '#4b5563', fontSize: '0.8rem',
-        }}>
-          🎓 Tugas Mata Kuliah Aljabar Linear · Semester 2 · Implementasi PCA &amp; SVD (Eigenfaces) · NumPy · OpenCV
+        
+        {/* Footer */}
+        <footer className="py-6 text-center text-xs font-medium text-gray-500 border-t border-gray-800/50">
+          Implementasi Aljabar Linear · Next.js · Tailwind CSS v4
         </footer>
       </div>
     </>
