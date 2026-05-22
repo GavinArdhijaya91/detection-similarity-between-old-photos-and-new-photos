@@ -31,27 +31,37 @@ if os.path.exists(NPZ_PATH):
     except Exception as e:
         print(f"❌ Error loading .npz: {e}")
 
+def extract_edges(img):
+    sobelx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3)
+    sobely = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=3)
+    magnitude = cv2.magnitude(sobelx, sobely)
+    return cv2.normalize(magnitude, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+
 def preprocess_image(image_b64: str):
     img_bytes = base64.b64decode(image_b64.split(",")[-1])
     pil_img   = Image.open(BytesIO(img_bytes)).convert("RGB")
     np_img    = np.array(pil_img)
-    gray      = cv2.cvtColor(np_img, cv2.COLOR_RGB2GRAY)
-
-    cascade      = cv2.CascadeClassifier(HAAR_FRONTAL)
-    faces        = cascade.detectMultiScale(gray, 1.1, 5, minSize=(30, 30))
+    img_gray  = cv2.cvtColor(np_img, cv2.COLOR_RGB2GRAY)
+    
+    cascade = cv2.CascadeClassifier(HAAR_FRONTAL)
+    faces = cascade.detectMultiScale(img_gray, 1.1, 5, minSize=(30, 30))
+    
     face_detected = len(faces) > 0
-
     if face_detected:
         faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
         x, y, w, h = faces[0]
         pad = int(min(w, h) * 0.2)
-        H, W = gray.shape
+        H, W = img_gray.shape
         x1, y1 = max(0, x - pad), max(0, y - pad)
         x2, y2 = min(W, x + w + pad), min(H, y + h + pad)
-        gray = gray[y1:y2, x1:x2]
+        gray = img_gray[y1:y2, x1:x2]
         gray = cv2.equalizeHist(gray)
+    else:
+        gray = cv2.equalizeHist(img_gray)
+        
     resized    = cv2.resize(gray, TARGET_SIZE, interpolation=cv2.INTER_AREA)
-    normalized = resized.astype(np.float64) / 255.0
+    edge_map   = extract_edges(resized)
+    normalized = edge_map.astype(np.float64) / 255.0
 
     return normalized, face_detected
 
@@ -74,7 +84,6 @@ def ssim_simple(img1, img2):
 def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
     f1, f2 = face1.flatten(), face2.flatten()
 
-    # Individual SVDs just for chart visualization (optional, purely visual)
     U1, S1, _  = np.linalg.svd(face1, full_matrices=False)
     U2, S2, _  = np.linalg.svd(face2, full_matrices=False)
 
@@ -124,7 +133,7 @@ def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
             "composite_score": round(composite, 4),
         },
         "eigenvalues": [float(v) for v in eigenvalues],
-        "weights_face1": [float(v) for v in w1[:15]], # limit to top 15 for JSON
+        "weights_face1": [float(v) for v in w1[:15]],
         "weights_face2": [float(v) for v in w2[:15]],
         "singular_values_face1": sv_info(S1),
         "singular_values_face2": sv_info(S2),
@@ -148,9 +157,6 @@ def make_decision(composite: float, cos_eigen: float, threshold: float = 0.70):
         "level": level, "confidence": confidence, "color": color,
         "threshold_used": threshold,
     }
-
-
-# ─── Routes ───────────────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
