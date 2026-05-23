@@ -22,14 +22,28 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.clip(np.dot(a_flat, b_flat) / (norm_a * norm_b), -1.0, 1.0))
 
 
-def mahalanobis_cosine_sim(w1: np.ndarray, w2: np.ndarray, S: np.ndarray) -> float:
-    epsilon = 1e-5
-    w1_scaled = w1 / (S + epsilon)
-    w2_scaled = w2 / (S + epsilon)
+def custom_weighted_cosine_sim(w1: np.ndarray, w2: np.ndarray) -> float:
+    """
+    Sistem Skala Prioritas Selektif yang aman (tanpa pembagian noise).
+    - Eigenface 1-3 (Bentuk Kepala Global): Prioritas diturunkan menjadi 20%
+    - Eigenface 4-15 (Fitur Biologis Inti): Prioritas maksimal 100%
+    - Eigenface 16+ (Noise/Kamera): Prioritas diturunkan menjadi 50%
+    """
+    weights = np.ones_like(w1)
+    if len(weights) > 3:
+        weights[:3] = 0.2
+    if len(weights) > 15:
+        weights[15:] = 0.5
+        
+    w1_scaled = w1 * weights
+    w2_scaled = w2 * weights
     return cosine_similarity(w1_scaled, w2_scaled)
 
 
 def ssim_simple(img1: np.ndarray, img2: np.ndarray) -> float:
+    """
+    Calculates Structural Similarity Index (SSIM) roughly for pixel-based comparison.
+    """
     a, b = img1.flatten(), img2.flatten()
     C1, C2 = 0.01**2, 0.03**2
     mu1, mu2 = np.mean(a), np.mean(b)
@@ -47,14 +61,20 @@ def compute_all_metrics(
     face2_display: np.ndarray,
     S_joint: np.ndarray
 ) -> Dict[str, float]:
-    cos_eigen = mahalanobis_cosine_sim(weights1, weights2, S_joint)
+    """
+    Computes all similarity metrics for the Streamlit UI.
+    Uses Custom Priority Weights.
+    """
+    cos_eigen = custom_weighted_cosine_sim(weights1, weights2)
     
-    epsilon = 1e-5
-    w1_scaled = weights1 / (S_joint + epsilon)
-    w2_scaled = weights2 / (S_joint + epsilon)
-    euc_d = float(np.linalg.norm(w1_scaled - w2_scaled))
+    weights = np.ones_like(weights1)
+    if len(weights) > 3:
+        weights[:3] = 0.2
+    if len(weights) > 15:
+        weights[15:] = 0.5
         
-    euc_sim = float(np.exp(-0.1 * euc_d))
+    euc_d = float(np.linalg.norm((weights1 * weights) - (weights2 * weights)))
+    euc_sim = 1.0 / (1.0 + euc_d)
     
     ssim = ssim_simple(face1_display, face2_display)
     cos_pixel = cosine_similarity(face1_display.flatten(), face2_display.flatten())

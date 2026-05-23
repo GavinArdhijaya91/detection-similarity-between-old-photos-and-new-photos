@@ -97,18 +97,21 @@ def cosine_sim(a, b):
         return 0.0
     return float(np.dot(a, b) / (na * nb))
 
-def mahalanobis_cosine_sim(w1, w2, S):
+def custom_weighted_cosine_sim(w1, w2):
     """
-    Computes Cosine Similarity using Mahalanobis Scaling (Whitening Transformation).
-    Instead of dropping components, it scales every weight by the inverse of its Singular Value.
-    Mathematically: w_scaled = \Sigma^{-1} w
-    This equalizes the variance, preventing the massive 1st Eigenface from drowning out the micro-features.
+    Sistem Skala Prioritas Selektif yang aman (tanpa pembagian noise).
+    - Eigenface 1-3 (Bentuk Kepala Global): Prioritas diturunkan menjadi 20%
+    - Eigenface 4-15 (Fitur Biologis Inti): Prioritas maksimal 100%
+    - Eigenface 16+ (Noise/Kamera): Prioritas diturunkan menjadi 50%
     """
-    # Prevent division by zero for very small singular values
-    epsilon = 1e-5
-    w1_scaled = w1 / (S + epsilon)
-    w2_scaled = w2 / (S + epsilon)
-    
+    weights = np.ones_like(w1)
+    if len(weights) > 3:
+        weights[:3] = 0.2
+    if len(weights) > 15:
+        weights[15:] = 0.5
+        
+    w1_scaled = w1 * weights
+    w2_scaled = w2 * weights
     return cosine_sim(w1_scaled, w2_scaled)
 
 def ssim_simple(img1, img2):
@@ -151,18 +154,18 @@ def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
         w1 = ef @ (f1 - mf)
         w2 = ef @ (f2 - mf)
 
-    # ALGORITMA BARU: Skala Prioritas Mahalanobis
-    # Menggunakan SEMUA komponen (tidak ada yang dibuang), tapi bobotnya distandarisasi oleh Matriks Sigma
-    cos_eigen = mahalanobis_cosine_sim(w1, w2, S_joint)
+    # Menggunakan Prioritas Custom untuk menghindari ledakan noise dari Singular Values
+    cos_eigen = custom_weighted_cosine_sim(w1, w2)
     
-    # Euclidean distance is also calculated on the Mahalanobis scaled space
-    epsilon = 1e-5
-    w1_scaled = w1 / (S_joint + epsilon)
-    w2_scaled = w2 / (S_joint + epsilon)
-    euc_d = float(np.linalg.norm(w1_scaled - w2_scaled))
+    # Euclidean distance menggunakan weights yang sama
+    weights = np.ones_like(w1)
+    if len(weights) > 3:
+        weights[:3] = 0.2
+    if len(weights) > 15:
+        weights[15:] = 0.5
         
-    # Karena jarak pada ruang berskala bisa sangat besar, kita normalkan menggunakan eksponensial
-    euc_sim = float(np.exp(-0.1 * euc_d))
+    euc_d = float(np.linalg.norm((w1 * weights) - (w2 * weights)))
+    euc_sim = 1.0 / (1.0 + euc_d)
     
     ssim = ssim_simple(f1, f2)
     cos_pixel = cosine_sim(f1, f2)
