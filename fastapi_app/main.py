@@ -11,12 +11,25 @@ from fastapi.templating import Jinja2Templates
 app = FastAPI(title="FaceMatch PCA/SVD")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
-TARGET_SIZE = (128, 128)
+TARGET_SIZE = (64, 64)
 HAAR_FRONTAL = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-NPZ_PATH = Path(__file__).parent.parent / "pretrained_eigenspace.npz"
 
+def get_npz_path():
+    # Try multiple common paths for Vercel Serverless
+    paths = [
+        Path(__file__).parent.parent / "pretrained_eigenspace.npz",
+        Path(os.getcwd()) / "pretrained_eigenspace.npz",
+        Path("/var/task/pretrained_eigenspace.npz")
+    ]
+    for p in paths:
+        if p.exists():
+            return p
+    return None
+
+NPZ_PATH = get_npz_path()
 PRETRAINED = None
-if os.path.exists(NPZ_PATH):
+
+if NPZ_PATH is not None:
     try:
         data = np.load(NPZ_PATH)
         PRETRAINED = {
@@ -24,9 +37,11 @@ if os.path.exists(NPZ_PATH):
             "eigenfaces": data['eigenfaces'],
             "singular_values": data['singular_values'],
         }
-        print(f"[OK] Pretrained model loaded! ({len(PRETRAINED['eigenfaces'])} eigenfaces)")
+        print(f"[OK] Pretrained model loaded from {NPZ_PATH}")
     except Exception as e:
         print(f"[Error] loading .npz: {e}")
+else:
+    print("[Error] pretrained_eigenspace.npz not found anywhere!")
 
 def detect_and_crop(contents: str):
     if "," in contents:
