@@ -261,6 +261,7 @@ def analyze_two_faces(
         "reconstructed_face1": r1, "reconstructed_face2": r2,
         "svd_face1": {"U": U1, "S": S1, "Vt": Vt1},
         "svd_face2": {"U": U2, "S": S2, "Vt": Vt2},
+        "singular_values_joint": ef["singular_values"],
     }
 
 
@@ -296,6 +297,7 @@ def analyze_two_faces_with_dataset(
         "reconstructed_face2": r2,
         "svd_face1"          : {"U": U1, "S": S1, "Vt": Vt1},
         "svd_face2"          : {"U": U2, "S": S2, "Vt": Vt2},
+        "singular_values_joint": eigenspace["singular_values"],
         "n_components_used"  : len(w1),
         "eigenspace_info"    : {
             "dataset_size"           : eigenspace.get("dataset_size"),

@@ -22,49 +22,64 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.clip(np.dot(a_flat, b_flat) / (norm_a * norm_b), -1.0, 1.0))
 
 
-def euclidean_distance(a: np.ndarray, b: np.ndarray) -> float:
-    return float(np.linalg.norm(a.flatten().astype(float) - b.flatten().astype(float)))
+def mahalanobis_cosine_sim(w1: np.ndarray, w2: np.ndarray, S: np.ndarray) -> float:
+    """
+    Computes Cosine Similarity using Mahalanobis Scaling (Whitening Transformation).
+    Instead of dropping components, it scales every weight by the inverse of its Singular Value.
+    Mathematically: w_scaled = \Sigma^{-1} w
+    """
+    epsilon = 1e-5
+    w1_scaled = w1 / (S + epsilon)
+    w2_scaled = w2 / (S + epsilon)
+    return cosine_similarity(w1_scaled, w2_scaled)
 
 
-def normalized_euclidean_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    return float(1.0 / (1.0 + euclidean_distance(a, b)))
-
-
-def structural_similarity_pixels(img1: np.ndarray, img2: np.ndarray) -> float:
-    a = img1.flatten().astype(float)
-    b = img2.flatten().astype(float)
-    C1, C2 = 0.01 ** 2, 0.03 ** 2
+def ssim_simple(img1: np.ndarray, img2: np.ndarray) -> float:
+    """
+    Calculates Structural Similarity Index (SSIM) roughly for pixel-based comparison.
+    """
+    a, b = img1.flatten(), img2.flatten()
+    C1, C2 = 0.01**2, 0.03**2
     mu1, mu2 = np.mean(a), np.mean(b)
-    s1, s2   = np.var(a), np.var(b)
-    s12      = np.mean((a - mu1) * (b - mu2))
+    s1, s2 = np.var(a), np.var(b)
+    s12 = np.mean((a - mu1) * (b - mu2))
     num = (2 * mu1 * mu2 + C1) * (2 * s12 + C2)
     den = (mu1**2 + mu2**2 + C1) * (s1 + s2 + C2)
-    return float(np.clip(num / den if den != 0 else 0.0, 0.0, 1.0))
+    return float(np.clip(num / den if den != 0 else 0, 0, 1))
 
 
 def compute_all_metrics(
-    weights1: np.ndarray,
+    weights1: np.ndarray, 
     weights2: np.ndarray,
-    face1_pixel: np.ndarray,
-    face2_pixel: np.ndarray,
+    face1_display: np.ndarray,
+    face2_display: np.ndarray,
+    S_joint: np.ndarray
 ) -> Dict[str, float]:
-    cos_sim    = cosine_similarity(weights1, weights2)
-    euc_dist   = euclidean_distance(weights1, weights2)
-    euc_sim    = normalized_euclidean_similarity(weights1, weights2)
-    ssim_score = structural_similarity_pixels(face1_pixel, face2_pixel)
-    pixel_cos  = cosine_similarity(face1_pixel, face2_pixel)
-    # TIE-BREAKER: Pinalti Jarak Euclidean
-    # Diperingan menjadi 0.90 + 0.10 (sebelumnya 0.80 + 0.20)
-    # Karena foto lama (blur) dan foto baru (tajam) memiliki perbedaan magnitudo yang besar.
+    """
+    Computes all similarity metrics for the Streamlit UI.
+    Uses Mahalanobis Cosine Similarity.
+    """
+    cos_eigen = mahalanobis_cosine_sim(weights1, weights2, S_joint)
+    
+    epsilon = 1e-5
+    w1_scaled = weights1 / (S_joint + epsilon)
+    w2_scaled = weights2 / (S_joint + epsilon)
+    euc_d = float(np.linalg.norm(w1_scaled - w2_scaled))
+        
+    euc_sim = float(np.exp(-0.1 * euc_d))
+    
+    ssim = ssim_simple(face1_display, face2_display)
+    cos_pixel = cosine_similarity(face1_display.flatten(), face2_display.flatten())
+    
+    # Tie-Breaker Penalty
     penalty_factor = 0.90 + (0.10 * euc_sim)
-
-    composite = float(max(0, cos_sim)) * penalty_factor
+    composite = float(max(0, cos_eigen)) * penalty_factor
     return {
-        "cosine_similarity_eigenspace" : round(cos_sim, 4),
-        "euclidean_distance_eigenspace": round(euc_dist, 4),
+        "cosine_similarity_eigenspace" : round(cos_eigen, 4),
+        "euclidean_distance_eigenspace": round(euc_d, 4),
         "euclidean_similarity_norm"    : round(euc_sim, 4),
-        "ssim_pixel"                   : round(ssim_score, 4),
-        "cosine_similarity_pixel"      : round(pixel_cos, 4),
+        "ssim_pixel"                   : round(ssim, 4),
+        "cosine_similarity_pixel"      : round(cos_pixel, 4),
         "composite_score"              : round(composite, 4),
     }
 

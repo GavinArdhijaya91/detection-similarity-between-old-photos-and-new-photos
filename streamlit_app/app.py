@@ -462,7 +462,8 @@ if file1 and file2:
                 
             w1 = res["weights_face1"]
             w2 = res["weights_face2"]
-            mets = compute_all_metrics(w1, w2, f1_disp, f2_disp)
+            S_joint = res["singular_values_joint"]
+            mets = compute_all_metrics(w1, w2, f1_disp, f2_disp, S_joint)
             
             if mets["cosine_similarity_eigenspace"] > best_cos:
                 best_cos = mets["cosine_similarity_eigenspace"]

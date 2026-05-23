@@ -49,6 +49,20 @@ def extract_edges(img: np.ndarray) -> np.ndarray:
     return cv2.normalize(magnitude, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
 
 
+def apply_elliptical_mask(image: np.ndarray) -> np.ndarray:
+    """
+    Applies an elliptical mask to remove background, hair, and ear edges.
+    Forces the PCA model to focus purely on internal facial features.
+    """
+    h, w = image.shape[:2]
+    mask = np.zeros((h, w), dtype=np.uint8)
+    center = (w // 2, h // 2)
+    axes = (int(w * 0.35), int(h * 0.45))
+    
+    cv2.ellipse(mask, center, axes, 0, 0, 360, 255, -1)
+    return cv2.bitwise_and(image, image, mask=mask)
+
+
 def preprocess_face(
     gray_image: np.ndarray,
     detect: bool = True,
@@ -57,15 +71,18 @@ def preprocess_face(
     angle: float = 0.0,
     pre_bbox: Optional[Tuple[int, int, int, int]] = None
 ) -> Tuple[np.ndarray, dict]:
-    info      = {"face_detected": False, "bbox": None}
+    """
+    Complete preprocessing pipeline: Detection, Rotation, CLAHE, Resize, Sobel, and Elliptical Masking.
+    """
+    info = {"face_detected": False, "bbox": None}
     face_crop = gray_image
 
     if detect:
         bbox = pre_bbox if pre_bbox is not None else detect_face(gray_image)
         if bbox is not None:
             info["face_detected"] = True
-            info["bbox"]          = bbox
-            face_crop             = crop_face(gray_image, bbox)
+            info["bbox"] = bbox
+            face_crop = crop_face(gray_image, bbox)
             
     if angle != 0.0:
         h, w = face_crop.shape[:2]
@@ -73,16 +90,18 @@ def preprocess_face(
         M = cv2.getRotationMatrix2D(center, angle, 1.0)
         face_crop = cv2.warpAffine(face_crop, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
 
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     face_crop = clahe.apply(face_crop)
 
     if blur:
         face_crop = apply_gaussian_blur(face_crop)
 
     resized = cv2.resize(face_crop, target_size, interpolation=cv2.INTER_AREA)
-    edge_map = extract_edges(resized)
-    normalized = edge_map.astype(np.float64) / 255.0
     
+    edge_map = extract_edges(resized)
+    masked_edges = apply_elliptical_mask(edge_map)
+    
+    normalized = masked_edges.astype(np.float64) / 255.0
     return normalized, info
 
 

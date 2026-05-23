@@ -62,6 +62,17 @@ def detect_and_crop(contents: str):
         return img_gray[y1:y2, x1:x2], True
     return img_gray, False
 
+def apply_elliptical_mask(image: np.ndarray) -> np.ndarray:
+    """
+    Applies an elliptical mask to remove background, hair, and ear edges.
+    """
+    h, w = image.shape[:2]
+    mask = np.zeros((h, w), dtype=np.uint8)
+    center = (w // 2, h // 2)
+    axes = (int(w * 0.35), int(h * 0.45))
+    cv2.ellipse(mask, center, axes, 0, 0, 360, 255, -1)
+    return cv2.bitwise_and(image, image, mask=mask)
+
 def process_cropped(gray, angle=0.0):
     if angle != 0.0:
         h, w = gray.shape[:2]
@@ -72,31 +83,55 @@ def process_cropped(gray, angle=0.0):
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     gray = clahe.apply(gray)
         
-    resized    = cv2.resize(gray, TARGET_SIZE, interpolation=cv2.INTER_AREA)
-    edge_map   = extract_edges(resized)
-    return edge_map.astype(np.float64) / 255.0
+    resized = cv2.resize(gray, TARGET_SIZE, interpolation=cv2.INTER_AREA)
+    edge_map = extract_edges(resized)
+    masked_edges = apply_elliptical_mask(edge_map)
+    return masked_edges.astype(np.float64) / 255.0
 
 def cosine_sim(a, b):
+    """
+    Standard cosine similarity.
+    """
     na, nb = np.linalg.norm(a), np.linalg.norm(b)
     if na == 0 or nb == 0:
         return 0.0
     return float(np.dot(a, b) / (na * nb))
 
+def mahalanobis_cosine_sim(w1, w2, S):
+    """
+    Computes Cosine Similarity using Mahalanobis Scaling (Whitening Transformation).
+    Instead of dropping components, it scales every weight by the inverse of its Singular Value.
+    Mathematically: w_scaled = \Sigma^{-1} w
+    This equalizes the variance, preventing the massive 1st Eigenface from drowning out the micro-features.
+    """
+    # Prevent division by zero for very small singular values
+    epsilon = 1e-5
+    w1_scaled = w1 / (S + epsilon)
+    w2_scaled = w2 / (S + epsilon)
+    
+    return cosine_sim(w1_scaled, w2_scaled)
+
 def ssim_simple(img1, img2):
-    a, b   = img1.flatten(), img2.flatten()
+    """
+    Calculates Structural Similarity Index (SSIM) roughly for pixel-based comparison.
+    """
+    a, b = img1.flatten(), img2.flatten()
     C1, C2 = 0.01**2, 0.03**2
-    mu1, mu2   = np.mean(a), np.mean(b)
-    s1, s2     = np.var(a), np.var(b)
-    s12        = np.mean((a - mu1) * (b - mu2))
-    num = (2*mu1*mu2 + C1) * (2*s12 + C2)
+    mu1, mu2 = np.mean(a), np.mean(b)
+    s1, s2 = np.var(a), np.var(b)
+    s12 = np.mean((a - mu1) * (b - mu2))
+    num = (2 * mu1 * mu2 + C1) * (2 * s12 + C2)
     den = (mu1**2 + mu2**2 + C1) * (s1 + s2 + C2)
     return float(np.clip(num / den if den != 0 else 0, 0, 1))
 
 def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
+    """
+    Projects the extracted edges into the Eigenspace and computes weighted similarity metrics.
+    """
     f1, f2 = face1.flatten(), face2.flatten()
 
-    U1, S1, _  = np.linalg.svd(face1, full_matrices=False)
-    U2, S2, _  = np.linalg.svd(face2, full_matrices=False)
+    U1, S1, _ = np.linalg.svd(face1, full_matrices=False)
+    U2, S2, _ = np.linalg.svd(face2, full_matrices=False)
 
     if PRETRAINED is not None:
         ef = PRETRAINED["eigenfaces"]
@@ -116,20 +151,24 @@ def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
         w1 = ef @ (f1 - mf)
         w2 = ef @ (f2 - mf)
 
-    cos_eigen = cosine_sim(w1, w2)
-    euc_d     = float(np.linalg.norm(w1 - w2))
-    euc_sim   = 1.0 / (1.0 + euc_d)
+    # ALGORITMA BARU: Skala Prioritas Mahalanobis
+    # Menggunakan SEMUA komponen (tidak ada yang dibuang), tapi bobotnya distandarisasi oleh Matriks Sigma
+    cos_eigen = mahalanobis_cosine_sim(w1, w2, S_joint)
     
-    # Kita tetap menghitungnya untuk ditampilkan di UI (meski tidak dipakai di skor akhir)
-    ssim      = ssim_simple(f1, f2)
+    # Euclidean distance is also calculated on the Mahalanobis scaled space
+    epsilon = 1e-5
+    w1_scaled = w1 / (S_joint + epsilon)
+    w2_scaled = w2 / (S_joint + epsilon)
+    euc_d = float(np.linalg.norm(w1_scaled - w2_scaled))
+        
+    # Karena jarak pada ruang berskala bisa sangat besar, kita normalkan menggunakan eksponensial
+    euc_sim = float(np.exp(-0.1 * euc_d))
+    
+    ssim = ssim_simple(f1, f2)
     cos_pixel = cosine_sim(f1, f2)
     
-    # TIE-BREAKER: Pinalti Jarak Euclidean
-    # Jika arah kosinusnya sama (mirip) tapi jarak vektornya berjauhan (orang berbeda/adik),
-    # kita berikan diskon pemotongan skor maksimal 20%.
+    # Tie-Breaker Penalty: Penalize score slightly if Euclidean distance is large
     penalty_factor = 0.90 + (0.10 * euc_sim)
-    
-    # Karena ini tugas Aljabar Linear, skor akhir WAJIB mencerminkan hasil SVD/PCA.
     composite = float(max(0, cos_eigen)) * penalty_factor
 
     def sv_info(S):
