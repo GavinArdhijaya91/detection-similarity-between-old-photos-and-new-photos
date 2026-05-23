@@ -77,7 +77,6 @@ def load_custom_selfie_dataset(base_path: str, target_size: Tuple[int, int] = (6
             continue
             
         target_names.append(entry)
-        
         for sub in ['docs', 'selfies']:
             sub_dir = os.path.join(person_dir, sub)
             if not os.path.isdir(sub_dir):

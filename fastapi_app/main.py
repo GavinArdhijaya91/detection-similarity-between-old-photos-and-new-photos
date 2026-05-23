@@ -215,8 +215,8 @@ async def analyze(request: Request):
         if not image1_b64 or not image2_b64:
             return JSONResponse({"error": "Kedua gambar diperlukan"}, status_code=400)
 
-        crop1, _ = detect_and_crop(image1_b64)
-        crop2, _ = detect_and_crop(image2_b64)
+        crop1, detected1 = detect_and_crop(image1_b64)
+        crop2, detected2 = detect_and_crop(image2_b64)
 
         face1 = process_cropped(crop1, angle=0.0)
 
