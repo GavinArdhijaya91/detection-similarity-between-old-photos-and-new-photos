@@ -1,10 +1,7 @@
-import json
 import base64
 import numpy as np
 import cv2
 import os
-from io import BytesIO
-from PIL import Image
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -38,7 +35,6 @@ def extract_edges(img):
     return cv2.normalize(magnitude, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
 
 def detect_and_crop(contents: str):
-    import base64
     if "," in contents:
         contents = contents.split(",")[1]
     img_bytes = base64.b64decode(contents)
