@@ -67,9 +67,6 @@ def detect_and_crop(contents: str):
     return img_gray, False
 
 def apply_elliptical_mask(image: np.ndarray) -> np.ndarray:
-    """
-    Applies an elliptical mask to remove background, hair, and ear edges.
-    """
     h, w = image.shape[:2]
     mask = np.zeros((h, w), dtype=np.uint8)
     center = (w // 2, h // 2)
@@ -92,21 +89,12 @@ def process_cropped(gray, angle=0.0):
     return masked_gray.astype(np.float64) / 255.0
 
 def cosine_sim(a, b):
-    """
-    Standard cosine similarity.
-    """
     na, nb = np.linalg.norm(a), np.linalg.norm(b)
     if na == 0 or nb == 0:
         return 0.0
     return float(np.dot(a, b) / (na * nb))
 
 def custom_weighted_cosine_sim(w1, w2):
-    """
-    Sistem Skala Prioritas Selektif yang aman (tanpa pembagian noise).
-    - Eigenface 1-3 (Bentuk Kepala Global): Prioritas diturunkan menjadi 20%
-    - Eigenface 4-15 (Fitur Biologis Inti): Prioritas maksimal 100%
-    - Eigenface 16+ (Noise/Kamera): Prioritas diturunkan menjadi 50%
-    """
     weights = np.ones_like(w1)
     if len(weights) > 3:
         weights[:3] = 0.2
