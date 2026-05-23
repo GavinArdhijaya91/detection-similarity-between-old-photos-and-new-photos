@@ -24,9 +24,9 @@ if os.path.exists(NPZ_PATH):
             "eigenfaces": data['eigenfaces'],
             "singular_values": data['singular_values'],
         }
-        print(f"✅ Pretrained model loaded! ({len(PRETRAINED['eigenfaces'])} eigenfaces)")
+        print(f"[OK] Pretrained model loaded! ({len(PRETRAINED['eigenfaces'])} eigenfaces)")
     except Exception as e:
-        print(f"❌ Error loading .npz: {e}")
+        print(f"[Error] loading .npz: {e}")
 
 def detect_and_crop(contents: str):
     if "," in contents:
@@ -104,9 +104,6 @@ def custom_weighted_cosine_sim(w1, w2):
     return cosine_sim(w1_scaled, w2_scaled)
 
 def ssim_simple(img1, img2):
-    """
-    Calculates Structural Similarity Index (SSIM) roughly for pixel-based comparison.
-    """
     a, b = img1.flatten(), img2.flatten()
     C1, C2 = 0.01**2, 0.03**2
     mu1, mu2 = np.mean(a), np.mean(b)
@@ -117,9 +114,6 @@ def ssim_simple(img1, img2):
     return float(np.clip(num / den if den != 0 else 0, 0, 1))
 
 def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
-    """
-    Projects the extracted edges into the Eigenspace and computes weighted similarity metrics.
-    """
     f1, f2 = face1.flatten(), face2.flatten()
 
     U1, S1, _ = np.linalg.svd(face1, full_matrices=False)
@@ -143,10 +137,8 @@ def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
         w1 = ef @ (f1 - mf)
         w2 = ef @ (f2 - mf)
 
-    # Menggunakan Prioritas Custom untuk menghindari ledakan noise dari Singular Values
     cos_eigen = custom_weighted_cosine_sim(w1, w2)
-    
-    # Euclidean distance menggunakan weights yang sama
+
     weights = np.ones_like(w1)
     if len(weights) > 3:
         weights[:3] = 0.2
@@ -158,8 +150,7 @@ def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
     
     ssim = ssim_simple(f1, f2)
     cos_pixel = cosine_sim(f1, f2)
-    
-    # Tie-Breaker Penalty Baru: Lebih galak!
+
     composite = float(max(0, cos_eigen)) * float(euc_sim)
 
     def sv_info(S):

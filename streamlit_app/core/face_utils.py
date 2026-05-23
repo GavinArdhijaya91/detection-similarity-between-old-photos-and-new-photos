@@ -8,7 +8,7 @@ from typing import Tuple, Optional
 TARGET_SIZE  = (128, 128)
 HAAR_FRONTAL = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 HAAR_PROFILE = cv2.data.haarcascades + "haarcascade_profileface.xml"
-
+HAAR_EYE     = cv2.data.haarcascades + "haarcascade_eye.xml"
 
 def load_image_from_bytes(image_bytes: bytes) -> np.ndarray:
     pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
@@ -26,6 +26,28 @@ def detect_face(gray_image: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
         if len(faces) > 0:
             return tuple(sorted(faces, key=lambda f: f[2] * f[3], reverse=True)[0])
     return None
+
+def detect_eyes_and_angle(gray_crop: np.ndarray) -> Tuple[float, bool]:
+    eye_cascade = cv2.CascadeClassifier(HAAR_EYE)
+    eyes = eye_cascade.detectMultiScale(gray_crop, scaleFactor=1.1, minNeighbors=5, minSize=(10, 10))
+    
+    if len(eyes) == 2:
+        # Sort by x coordinate (left eye first)
+        eyes = sorted(eyes, key=lambda e: e[0])
+        ex1, ey1, ew1, eh1 = eyes[0]
+        ex2, ey2, ew2, eh2 = eyes[1]
+        
+        # Calculate centers
+        cx1, cy1 = ex1 + ew1//2, ey1 + eh1//2
+        cx2, cy2 = ex2 + ew2//2, ey2 + eh2//2
+        
+        dy = cy2 - cy1
+        dx = cx2 - cx1
+        angle = np.degrees(np.arctan2(dy, dx))
+        # Valid angles shouldn't be upside down, clamp it reasonably (-30 to 30)
+        if -30.0 <= angle <= 30.0:
+            return angle, True
+    return 0.0, False
 
 
 def crop_face(gray_image: np.ndarray, bbox: Tuple[int, int, int, int], padding: float = 0.2) -> np.ndarray:
@@ -61,13 +83,20 @@ def preprocess_face(
     detect: bool = True,
     target_size: Tuple[int, int] = TARGET_SIZE,
     blur: bool = False,
-    angle: float = 0.0,
+    force_angle: Optional[float] = None,
     pre_bbox: Optional[Tuple[int, int, int, int]] = None
 ) -> Tuple[np.ndarray, dict]:
     """
     Complete preprocessing pipeline: Detection, Rotation, CLAHE, Resize, Sobel, and Elliptical Masking.
+    Now captures step-by-step images for visualization.
     """
-    info = {"face_detected": False, "bbox": None}
+    info = {
+        "face_detected": False, 
+        "bbox": None, 
+        "eye_aligned": False, 
+        "angle_used": 0.0,
+        "steps": {"original_gray": gray_image.copy()}
+    }
     face_crop = gray_image
 
     if detect:
@@ -76,15 +105,31 @@ def preprocess_face(
             info["face_detected"] = True
             info["bbox"] = bbox
             face_crop = crop_face(gray_image, bbox)
+            info["steps"]["crop"] = face_crop.copy()
             
-    if angle != 0.0:
+    # Determine angle
+    angle_to_use = 0.0
+    if force_angle is not None:
+        angle_to_use = force_angle
+    elif info["face_detected"]:
+        # Try automatic eye detection alignment
+        detected_angle, eye_success = detect_eyes_and_angle(face_crop)
+        if eye_success:
+            angle_to_use = detected_angle
+            info["eye_aligned"] = True
+            
+    info["angle_used"] = angle_to_use
+            
+    if angle_to_use != 0.0:
         h, w = face_crop.shape[:2]
         center = (w // 2, h // 2)
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        M = cv2.getRotationMatrix2D(center, angle_to_use, 1.0)
         face_crop = cv2.warpAffine(face_crop, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+        info["steps"]["aligned"] = face_crop.copy()
 
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     face_crop = clahe.apply(face_crop)
+    info["steps"]["equalized"] = face_crop.copy()
 
     if blur:
         face_crop = apply_gaussian_blur(face_crop)
@@ -92,6 +137,7 @@ def preprocess_face(
     resized = cv2.resize(face_crop, target_size, interpolation=cv2.INTER_AREA)
     
     masked_gray = apply_elliptical_mask(resized)
+    info["steps"]["final"] = masked_gray.copy()
     
     normalized = masked_gray.astype(np.float64) / 255.0
     return normalized, info

@@ -59,7 +59,8 @@ def compute_all_metrics(
     weights2: np.ndarray,
     face1_display: np.ndarray,
     face2_display: np.ndarray,
-    S_joint: np.ndarray
+    S_joint: np.ndarray,
+    penalty_factor: float = 0.05
 ) -> Dict[str, float]:
     """
     Computes all similarity metrics for the Streamlit UI.
@@ -75,7 +76,7 @@ def compute_all_metrics(
         
     euc_d = float(np.linalg.norm((weights1 * weights) - (weights2 * weights)))
     # Ubah euc_sim agar lebih sensitif terhadap jarak yang kecil sekalipun (memisahkan saudara kandung)
-    euc_sim = np.exp(-0.05 * euc_d)
+    euc_sim = np.exp(-penalty_factor * euc_d)
     
     ssim = ssim_simple(face1_display, face2_display)
     cos_pixel = cosine_similarity(face1_display.flatten(), face2_display.flatten())
