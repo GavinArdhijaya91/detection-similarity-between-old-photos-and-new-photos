@@ -273,6 +273,11 @@ with st.sidebar:
     penalty_factor = st.slider(T['penalty_label'], 0.01, 0.20, 0.05, 0.01)
     target_size_sel = st.selectbox(T['target_size_label'], [64, 128, 256], index=1)
     
+    st.sidebar.markdown("### Bobot Fusion (Sensor)")
+    alpha_lbp = st.sidebar.slider("Bobot LBP (Tekstur)", 0.0, 2.0, 1.0, 0.1)
+    beta_hog = st.sidebar.slider("Bobot HOG (Bentuk)", 0.0, 2.0, 1.0, 0.1)
+    gamma_pix = st.sidebar.slider("Bobot Pixel (Intensitas)", 0.0, 2.0, 1.0, 0.1)
+    
     detect_face_opt = st.toggle("Auto Deteksi Wajah", value=True)
     show_eigenfaces = st.toggle("Tampilkan Eigenfaces Dataset", value=True)
     show_math = st.toggle("Penjelasan Matematis", value=True)
@@ -530,7 +535,7 @@ if file1 and file2:
                     fusion_args["S_lbp"] = res.get("singular_values_lbp")
                     fusion_args["S_hog"] = res.get("singular_values_hog")
 
-                mets = compute_all_metrics(w1, w2, f1_disp, f2_disp, S_joint, penalty_factor=penalty_factor, **fusion_args)
+                mets = compute_all_metrics(w1, w2, f1_disp, f2_disp, S_joint, penalty_factor=penalty_factor, alpha=alpha_lbp, beta=beta_hog, gamma=gamma_pix, **fusion_args)
                 
                 if mets["composite_score"] > best_score:
                     best_score = mets["composite_score"]
