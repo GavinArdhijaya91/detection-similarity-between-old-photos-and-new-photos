@@ -563,7 +563,30 @@ if file1 and file2:
     s_color  = "#10b981" if is_same else "#ef4444"
     r_class  = "result-same" if is_same else "result-diff"
     verdict_display = decision.get("verdict_display", decision["verdict"])
-
+    
+    
+    st.markdown(f"""
+    <div class="result-card {r_class}">
+      <div style="font-size:3rem;margin-bottom:0.5rem">{'&#x2705;' if is_same else '&#x274c;'}</div>
+      <div style="font-size:1.5rem;font-weight:800;color:{s_color};margin-bottom:0.3rem">{verdict_display}</div>
+      <div style="font-size:3.5rem;font-weight:900;color:{s_color};line-height:1;margin:0.5rem 0">{score:.1%}</div>
+      <div style="color:#64748b;font-size:0.85rem;margin-bottom:0.75rem">Composite Score (Edge-PCA + Pinalti Euclidean)</div>
+      <div style="display:flex;justify-content:center;gap:0.75rem;flex-wrap:wrap">
+        <span style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);
+                     border-radius:50px;padding:0.3rem 0.85rem;font-size:0.75rem;color:{s_color}">
+          {decision['level']} &middot; Kepercayaan: {decision['confidence']}
+        </span>
+        <span style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);
+                     border-radius:50px;padding:0.3rem 0.85rem;font-size:0.75rem;color:#94a3b8">
+          Threshold: {threshold:.0%}
+        </span>
+        <span style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);
+                     border-radius:50px;padding:0.3rem 0.85rem;font-size:0.75rem;color:#67e8f9">
+          {mode_label}
+        </span>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     st.markdown(f'<div class="section-title">🛠️ {T.get("sec_prep", "Preprocessing Pipeline")}</div>', unsafe_allow_html=True)
     
@@ -710,29 +733,6 @@ if file1 and file2:
         ax.legend(fontsize=7)
         st.pyplot(fig, use_container_width=False)
         plt.close(fig)
-
-    st.markdown(f"""
-    <div class="result-card {r_class}">
-      <div style="font-size:3rem;margin-bottom:0.5rem">{'&#x2705;' if is_same else '&#x274c;'}</div>
-      <div style="font-size:1.5rem;font-weight:800;color:{s_color};margin-bottom:0.3rem">{verdict_display}</div>
-      <div style="font-size:3.5rem;font-weight:900;color:{s_color};line-height:1;margin:0.5rem 0">{score:.1%}</div>
-      <div style="color:#64748b;font-size:0.85rem;margin-bottom:0.75rem">Composite Score (Edge-PCA + Pinalti Euclidean)</div>
-      <div style="display:flex;justify-content:center;gap:0.75rem;flex-wrap:wrap">
-        <span style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);
-                     border-radius:50px;padding:0.3rem 0.85rem;font-size:0.75rem;color:{s_color}">
-          {decision['level']} &middot; Kepercayaan: {decision['confidence']}
-        </span>
-        <span style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);
-                     border-radius:50px;padding:0.3rem 0.85rem;font-size:0.75rem;color:#94a3b8">
-          Threshold: {threshold:.0%}
-        </span>
-        <span style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);
-                     border-radius:50px;padding:0.3rem 0.85rem;font-size:0.75rem;color:#67e8f9">
-          {mode_label}
-        </span>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
 
     st.markdown(f'<div class="section-title">🔬 {T.get("sec_06", "Section 06: Advanced Analysis")}</div>', unsafe_allow_html=True)
     

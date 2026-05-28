@@ -59,8 +59,8 @@ def compute_all_metrics(
 ) -> Dict[str, float]:
 
     s_j = S_joint if S_joint is not None else np.ones_like(weights1)
-    w1s = weights1 / (s_j + 1e-8)
-    w2s = weights2 / (s_j + 1e-8)
+    w1s = weights1 / (s_j ** 0.5 + 1e-8)
+    w2s = weights2 / (s_j ** 0.5 + 1e-8)
     
     cos_eigen = float(cosine_similarity(w1s, w2s))
  
@@ -89,8 +89,8 @@ def compute_all_metrics(
     if is_fusion:
         # Mahalanobis Whitening untuk LBP
         s_lbp = S_lbp if S_lbp is not None else np.ones_like(weights1_lbp)
-        w1_lbp_s = weights1_lbp / (s_lbp + 1e-8)
-        w2_lbp_s = weights2_lbp / (s_lbp + 1e-8)
+        w1_lbp_s = weights1_lbp / (s_lbp ** 0.5 + 1e-8)
+        w2_lbp_s = weights2_lbp / (s_lbp ** 0.5 + 1e-8)
         
         cos_lbp   = float(cosine_similarity(w1_lbp_s, w2_lbp_s))
         d_lbp     = float(np.linalg.norm(weights1_lbp - weights2_lbp))
@@ -98,8 +98,8 @@ def compute_all_metrics(
 
         # Mahalanobis Whitening untuk HOG
         s_hog = S_hog if S_hog is not None else np.ones_like(weights1_hog)
-        w1_hog_s = weights1_hog / (s_hog + 1e-8)
-        w2_hog_s = weights2_hog / (s_hog + 1e-8)
+        w1_hog_s = weights1_hog / (s_hog ** 0.5 + 1e-8)
+        w2_hog_s = weights2_hog / (s_hog ** 0.5 + 1e-8)
         
         cos_hog   = float(cosine_similarity(w1_hog_s, w2_hog_s))
         d_hog     = float(np.linalg.norm(weights1_hog - weights2_hog))
