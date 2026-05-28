@@ -12,7 +12,7 @@ def get_singular_values_info(S: np.ndarray) -> dict:
     total_energy     = np.sum(S ** 2)
     explained_var    = (S ** 2) / total_energy * 100
     cumulative_var   = np.cumsum(explained_var)
-    return {
+    return {7
         "singular_values"       : S,
         "explained_variance_pct": explained_var,
         "cumulative_variance_pct": cumulative_var,
@@ -62,48 +62,56 @@ def load_custom_selfie_dataset(base_path: str, target_size: Tuple[int, int] = (6
     import os
     import cv2
     from .face_utils import preprocess_face
-    
+    from .feature_extractor import extract_lbp_fast, extract_hog_features, extract_pixel_features
+
     if not os.path.exists(base_path):
         return None
-        
+
     images_list = []
-    targets = []
+    lbp_list    = []
+    hog_list    = []
+    targets      = []
     target_names = []
-    person_id = 0
-    
+    person_id    = 0
+
     for entry in sorted(os.listdir(base_path)):
         person_dir = os.path.join(base_path, entry)
         if not os.path.isdir(person_dir):
             continue
-            
+
         target_names.append(entry)
         for sub in ['docs', 'selfies']:
             sub_dir = os.path.join(person_dir, sub)
             if not os.path.isdir(sub_dir):
                 continue
-                
+
             for fname in os.listdir(sub_dir):
                 if fname.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
                     img_path = os.path.join(sub_dir, fname)
                     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
                     if img is not None:
-                        proc_face, info = preprocess_face(img, detect=True)
+                        proc_face, info = preprocess_face(img, detect=True, target_size=target_size)
                         if proc_face is not None:
-                            resized = cv2.resize(proc_face, target_size)
-                            images_list.append(resized.flatten())
+                            images_list.append(extract_pixel_features(proc_face))
+                            lbp_list.append(extract_lbp_fast(proc_face))
+                            hog_list.append(extract_hog_features(proc_face))
                             targets.append(person_id)
-        
+
         person_id += 1
-        
+
     if not images_list:
         return None
-        
-    images = np.array(images_list)
+
+    images   = np.array(images_list)
+    lbp_arr  = np.array(lbp_list)
+    hog_arr  = np.array(hog_list)
     images_2d = images.reshape(-1, target_size[0], target_size[1])
     n = images.shape[0]
-    
+
     return {
         "images"      : images,
+        "lbp_features": lbp_arr,
+        "hog_features": hog_arr,
         "images_2d"   : images_2d,
         "targets"     : np.array(targets),
         "target_names": target_names,
@@ -112,34 +120,54 @@ def load_custom_selfie_dataset(base_path: str, target_size: Tuple[int, int] = (6
         "image_shape" : target_size,
         "pixel_size"  : target_size[0] * target_size[1],
         "source"      : f"Selfie & ID ({n} foto, {len(target_names)} orang)",
-        "description" : f"Custom Dataset Selfie & ID lokal: {n} foto dari {len(target_names)} orang (docs & selfies). Ukuran {target_size[0]}x{target_size[1]} px.",
+        "description" : f"Custom Dataset Selfie & ID lokal: {n} foto dari {len(target_names)} orang. Ukuran {target_size[0]}x{target_size[1]} px.",
     }
 
 
 def load_pretrained_eigenspace(filepath: str) -> Optional[Dict]:
+    """
+    Memuat pretrained eigenspace dari file .npz.
+    Backward-compatible: mendukung format lama (pixel-only) dan format baru (LBP+HOG+Pixel fusion).
+    """
     import os
     if not os.path.exists(filepath):
         return None
     try:
-        data = np.load(filepath)
-        n = data['n_samples'].item() if data['n_samples'].ndim == 0 else data['n_samples'][0]
-        k = data['k_components'].item() if data['k_components'].ndim == 0 else data['k_components'][0]
-        shape = tuple(data['image_shape'])
-        
-        return {
-            "mean_face": data['mean_face'],
-            "eigenfaces": data['eigenfaces'],
-            "singular_values": data['singular_values'],
-            "explained_variance_pct": data['explained_variance_pct'],
+        data  = np.load(filepath)
+        n     = int(data['n_samples'].item() if data['n_samples'].ndim == 0 else data['n_samples'][0])
+        k     = int(data['k_components'].item() if data['k_components'].ndim == 0 else data['k_components'][0])
+        shape = tuple(int(x) for x in data['image_shape'])
+
+        result = {
+            "mean_face"               : data['mean_face'],
+            "eigenfaces"              : data['eigenfaces'],
+            "singular_values"         : data['singular_values'],
+            "explained_variance_pct"  : data['explained_variance_pct'],
             "explained_variance_ratio": data['explained_variance_pct'] / 100.0,
-            "eigenvalues": (data['singular_values'] ** 2) / max(1, n),
-            "n_samples": n,
-            "n_components": k,
-            "image_shape": shape,
-            "target_size": shape,
-            "source": f"Pretrained Colab Model ({n} foto)",
-            "description": f"Model dilatih di Colab. Menggunakan {k} Eigenfaces."
+            "eigenvalues"             : (data['singular_values'] ** 2) / max(1, n),
+            "n_samples"               : n,
+            "n_components"            : k,
+            "image_shape"             : shape,
+            "target_size"             : shape,
+            "feature_mode"            : str(data.get('feature_mode', 'pixel')),
         }
+
+        if 'mean_lbp' in data:
+            result["mean_lbp"]         = data['mean_lbp']
+            result["eigenfaces_lbp"]   = data['eigenfaces_lbp']
+            result["singular_values_lbp"] = data['singular_values_lbp']
+            result["feature_mode"]     = "fusion"
+
+        if 'mean_hog' in data:
+            result["mean_hog"]         = data['mean_hog']
+            result["eigenfaces_hog"]   = data['eigenfaces_hog']
+            result["singular_values_hog"] = data['singular_values_hog']
+
+        n_str = f"{n} foto"
+        mode  = result["feature_mode"]
+        result["source"]      = f"Pretrained Model ({n_str}, mode={mode})"
+        result["description"] = f"Model dilatih dengan {k} Eigenfaces. Mode: {mode}."
+        return result
     except Exception:
         return None
 
@@ -191,20 +219,53 @@ def compute_eigenfaces(
 
 
 def build_eigenspace_from_dataset(
-    dataset_images: np.ndarray,
+    dataset: dict,
     n_components: int = 50,
     target_size: Tuple[int, int] = (64, 64),
 ) -> dict:
-    ef = compute_eigenfaces(dataset_images, n_components=n_components)
+    """
+    Melatih eigenspace dari dataset.
+    Jika dataset mengandung 'lbp_features' dan 'hog_features', melatih 3 PCA terpisah (Fusion Mode).
+    Jika tidak, hanya melatih 1 PCA dari piksel (Pixel Mode).
+
+    Args:
+        dataset     : Dict dari load_custom_selfie_dataset() atau load_olivetti_dataset()
+        n_components: Jumlah komponen PCA yang dilatih
+        target_size : Ukuran gambar training
+
+    Returns:
+        dict berisi semua eigenspace yang sudah dilatih
+    """
+    images = dataset if isinstance(dataset, np.ndarray) else dataset.get("images")
+    ef     = compute_eigenfaces(images, n_components=n_components)
     cumvar = np.cumsum(ef["explained_variance_ratio"])
-    ef.update({
+    result = {
+        **ef,
         "target_size"            : target_size,
         "k_for_95pct_variance"   : int(np.searchsorted(cumvar, 0.95)) + 1,
         "k_for_99pct_variance"   : int(np.searchsorted(cumvar, 0.99)) + 1,
         "total_variance_captured": float(np.sum(ef["explained_variance_ratio"])),
-        "dataset_size"           : dataset_images.shape[0],
-    })
-    return ef
+        "dataset_size"           : images.shape[0],
+        "feature_mode"           : "pixel",
+    }
+
+    if isinstance(dataset, dict):
+        if "lbp_features" in dataset and dataset["lbp_features"] is not None:
+            ef_lbp = compute_eigenfaces(dataset["lbp_features"], n_components=n_components)
+            result["mean_lbp"]             = ef_lbp["mean_face"]
+            result["eigenfaces_lbp"]       = ef_lbp["eigenfaces"]
+            result["singular_values_lbp"]  = ef_lbp["singular_values"]
+            result["ev_ratio_lbp"]         = ef_lbp["explained_variance_ratio"]
+            result["feature_mode"]         = "fusion"
+
+        if "hog_features" in dataset and dataset["hog_features"] is not None:
+            ef_hog = compute_eigenfaces(dataset["hog_features"], n_components=n_components)
+            result["mean_hog"]             = ef_hog["mean_face"]
+            result["eigenfaces_hog"]       = ef_hog["eigenfaces"]
+            result["singular_values_hog"]  = ef_hog["singular_values"]
+            result["ev_ratio_hog"]         = ef_hog["explained_variance_ratio"]
+
+    return result
 
 
 def project_to_eigenspace(
@@ -269,39 +330,68 @@ def analyze_two_faces_with_dataset(
     face2: np.ndarray,
     eigenspace: dict,
 ) -> dict:
-    ef          = eigenspace["eigenfaces"]
-    mean_face   = eigenspace["mean_face"]
+    """
+    Proyeksikan dua wajah ke Eigenspace.
+    Mendukung mode Pixel-only dan LBP+HOG+Pixel Fusion secara otomatis.
+    """
+    from .feature_extractor import extract_lbp_fast, extract_hog_features, extract_pixel_features
+
     target_size = eigenspace.get("target_size", (64, 64))
+    face1_r     = resize_face_for_eigenspace(face1, target_size)
+    face2_r     = resize_face_for_eigenspace(face2, target_size)
 
-    face1_r = resize_face_for_eigenspace(face1, target_size)
-    face2_r = resize_face_for_eigenspace(face2, target_size)
-    f1, f2  = face1_r.flatten(), face2_r.flatten()
+    f1_pix = extract_pixel_features(face1_r)
+    f2_pix = extract_pixel_features(face2_r)
 
-    w1 = project_to_eigenspace(f1, ef, mean_face)
-    w2 = project_to_eigenspace(f2, ef, mean_face)
-    r1 = reconstruct_from_eigenspace(w1, ef, mean_face).reshape(target_size)
-    r2 = reconstruct_from_eigenspace(w2, ef, mean_face).reshape(target_size)
+    ef_pix  = eigenspace["eigenfaces"]
+    mf_pix  = eigenspace["mean_face"]
+    w1_pix  = project_to_eigenspace(f1_pix, ef_pix, mf_pix)
+    w2_pix  = project_to_eigenspace(f2_pix, ef_pix, mf_pix)
+
+    r1 = reconstruct_from_eigenspace(w1_pix, ef_pix, mf_pix).reshape(target_size)
+    r2 = reconstruct_from_eigenspace(w2_pix, ef_pix, mf_pix).reshape(target_size)
 
     U1, S1, Vt1 = svd_decompose(face1_r)
     U2, S2, Vt2 = svd_decompose(face2_r)
 
-    return {
-        "face1_resized"      : face1_r,
-        "face2_resized"      : face2_r,
-        "face1_flat"         : f1,
-        "face2_flat"         : f2,
-        "weights_face1"      : w1,
-        "weights_face2"      : w2,
-        "reconstructed_face1": r1,
-        "reconstructed_face2": r2,
-        "svd_face1"          : {"U": U1, "S": S1, "Vt": Vt1},
-        "svd_face2"          : {"U": U2, "S": S2, "Vt": Vt2},
+    result = {
+        "face1_resized"        : face1_r,
+        "face2_resized"        : face2_r,
+        "face1_flat"           : f1_pix,
+        "face2_flat"           : f2_pix,
+        "weights_face1"        : w1_pix,
+        "weights_face2"        : w2_pix,
+        "reconstructed_face1"  : r1,
+        "reconstructed_face2"  : r2,
+        "svd_face1"            : {"U": U1, "S": S1, "Vt": Vt1},
+        "svd_face2"            : {"U": U2, "S": S2, "Vt": Vt2},
         "singular_values_joint": eigenspace["singular_values"],
-        "n_components_used"  : len(w1),
-        "eigenspace_info"    : {
+        "n_components_used"    : len(w1_pix),
+        "feature_mode"         : eigenspace.get("feature_mode", "pixel"),
+        "eigenspace_info"      : {
             "dataset_size"           : eigenspace.get("dataset_size"),
             "n_components"           : eigenspace.get("n_components"),
             "total_variance_captured": eigenspace.get("total_variance_captured", 0),
             "k_for_95pct"            : eigenspace.get("k_for_95pct_variance"),
+            "feature_mode"           : eigenspace.get("feature_mode", "pixel"),
         },
     }
+
+    if eigenspace.get("feature_mode") == "fusion":
+        f1_lbp = extract_lbp_fast(face1_r)
+        f2_lbp = extract_lbp_fast(face2_r)
+        ef_lbp = eigenspace["eigenfaces_lbp"]
+        mf_lbp = eigenspace["mean_lbp"]
+        result["weights_face1_lbp"] = project_to_eigenspace(f1_lbp, ef_lbp, mf_lbp)
+        result["weights_face2_lbp"] = project_to_eigenspace(f2_lbp, ef_lbp, mf_lbp)
+        result["singular_values_lbp"] = eigenspace.get("singular_values_lbp")
+
+        f1_hog = extract_hog_features(face1_r)
+        f2_hog = extract_hog_features(face2_r)
+        ef_hog = eigenspace["eigenfaces_hog"]
+        mf_hog = eigenspace["mean_hog"]
+        result["weights_face1_hog"] = project_to_eigenspace(f1_hog, ef_hog, mf_hog)
+        result["weights_face2_hog"] = project_to_eigenspace(f2_hog, ef_hog, mf_hog)
+        result["singular_values_hog"] = eigenspace.get("singular_values_hog")
+
+    return result

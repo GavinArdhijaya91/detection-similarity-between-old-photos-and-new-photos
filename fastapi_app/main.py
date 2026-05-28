@@ -32,11 +32,21 @@ if NPZ_PATH is not None:
     try:
         data = np.load(NPZ_PATH)
         PRETRAINED = {
-            "mean_face": data['mean_face'],
-            "eigenfaces": data['eigenfaces'],
+            "mean_face"      : data['mean_face'],
+            "eigenfaces"     : data['eigenfaces'],
             "singular_values": data['singular_values'],
+            "feature_mode"   : str(data.get('feature_mode', np.array('pixel'))),
         }
-        print(f"[OK] Pretrained model loaded from {NPZ_PATH}")
+        if 'mean_lbp' in data:
+            PRETRAINED["mean_lbp"]          = data['mean_lbp']
+            PRETRAINED["eigenfaces_lbp"]    = data['eigenfaces_lbp']
+            PRETRAINED["singular_values_lbp"] = data['singular_values_lbp']
+            PRETRAINED["feature_mode"]      = "fusion"
+        if 'mean_hog' in data:
+            PRETRAINED["mean_hog"]          = data['mean_hog']
+            PRETRAINED["eigenfaces_hog"]    = data['eigenfaces_hog']
+            PRETRAINED["singular_values_hog"] = data['singular_values_hog']
+        print(f"[OK] Pretrained loaded from {NPZ_PATH} | mode={PRETRAINED['feature_mode']}")
     except Exception as e:
         print(f"[Error] loading .npz: {e}")
 else:
@@ -116,68 +126,124 @@ def ssim_simple(img1, img2):
     return float(np.clip(num / den if den != 0 else 0, 0, 1))
 
 def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
+    """
+    Proyeksikan dua wajah ke Eigenspace dan hitung semua metrik.
+    Mendukung mode Pixel-only dan LBP+HOG+Pixel Fusion secara otomatis.
+    """
     f1, f2 = face1.flatten(), face2.flatten()
 
     _, S1, _ = np.linalg.svd(face1, full_matrices=False)
     _, S2, _ = np.linalg.svd(face2, full_matrices=False)
 
     if PRETRAINED is not None:
-        ef = PRETRAINED["eigenfaces"]
-        mf = PRETRAINED["mean_face"]
-        w1 = ef @ (f1 - mf)
-        w2 = ef @ (f2 - mf)
-        S_joint = PRETRAINED["singular_values"]
+        ef  = PRETRAINED["eigenfaces"]
+        mf  = PRETRAINED["mean_face"]
+        w1  = ef @ (f1 - mf)
+        w2  = ef @ (f2 - mf)
+        S_joint   = PRETRAINED["singular_values"]
         eigenvalues = (S_joint ** 2) / 2
+        mode = PRETRAINED.get("feature_mode", "pixel")
     else:
-        stack = np.stack([f1, f2], axis=0)
-        mf = np.mean(stack, axis=0)
+        stack   = np.stack([f1, f2], axis=0)
+        mf      = np.mean(stack, axis=0)
         centered = stack - mf
         _, S_joint, Vt_joint = np.linalg.svd(centered, full_matrices=False)
-        n_comp = min(2, len(S_joint))
-        ef = Vt_joint[:n_comp]
+        n_comp   = min(2, len(S_joint))
+        ef       = Vt_joint[:n_comp]
         eigenvalues = (S_joint[:n_comp] ** 2) / 2
-        w1 = ef @ (f1 - mf)
-        w2 = ef @ (f2 - mf)
+        w1   = ef @ (f1 - mf)
+        w2   = ef @ (f2 - mf)
+        mode = "pixel"
 
-    cos_eigen = custom_weighted_cosine_sim(w1, w2)
+    w1_lbp = w2_lbp = w1_hog = w2_hog = None
+    if PRETRAINED is not None and mode == "fusion":
+        try:
+            from skimage.feature import local_binary_pattern, hog as hog_fn
+            img1_u8 = (face1 * 255).astype(np.uint8)
+            img2_u8 = (face2 * 255).astype(np.uint8)
 
-    weights = np.ones_like(w1)
-    if len(weights) > 3:
-        weights[:3] = 0.2
-    if len(weights) > 15:
-        weights[15:] = 0.5
-        
-    euc_d = float(np.linalg.norm((w1 * weights) - (w2 * weights)))
-    euc_sim = np.exp(-0.05 * euc_d)
-    
-    ssim = ssim_simple(f1, f2)
-    cos_pixel = cosine_sim(f1, f2)
+            lbp1 = local_binary_pattern(img1_u8, P=8, R=1, method='uniform').flatten()
+            lbp2 = local_binary_pattern(img2_u8, P=8, R=1, method='uniform').flatten()
+            lbp1 = lbp1 / (lbp1.max() + 1e-8)
+            lbp2 = lbp2 / (lbp2.max() + 1e-8)
 
-    composite = float(max(0, cos_eigen)) * float(euc_sim)
+            hog1 = hog_fn(img1_u8, orientations=8, pixels_per_cell=(8,8), cells_per_block=(2,2), block_norm='L2-Hys')
+            hog2 = hog_fn(img2_u8, orientations=8, pixels_per_cell=(8,8), cells_per_block=(2,2), block_norm='L2-Hys')
+
+            ef_lbp = PRETRAINED["eigenfaces_lbp"]
+            mf_lbp = PRETRAINED["mean_lbp"]
+            w1_lbp = ef_lbp @ (lbp1 - mf_lbp)
+            w2_lbp = ef_lbp @ (lbp2 - mf_lbp)
+
+            ef_hog = PRETRAINED["eigenfaces_hog"]
+            mf_hog = PRETRAINED["mean_hog"]
+            w1_hog = ef_hog @ (hog1 - mf_hog)
+            w2_hog = ef_hog @ (hog2 - mf_hog)
+        except Exception as e:
+            print(f"[Warning] Fusion feature extraction failed, fallback to pixel: {e}")
+            w1_lbp = w2_lbp = w1_hog = w2_hog = None
+
+    prio = np.ones_like(w1)
+    if len(prio) > 3:  prio[:3]  = 0.2
+    if len(prio) > 15: prio[15:] = 0.5
+    w1s, w2s = w1 * prio, w2 * prio
+
+    def cosine(a, b):
+        na, nb = np.linalg.norm(a), np.linalg.norm(b)
+        return float(np.dot(a, b) / (na * nb)) if na > 0 and nb > 0 else 0.0
+
+    cos_eigen = cosine(w1s, w2s)
+    euc_d     = float(np.linalg.norm(w1s - w2s))
+    euc_sim   = float(np.exp(-0.05 * euc_d))
+    score_pix = float(max(0, cos_eigen)) * euc_sim
+
+    ALPHA, BETA, GAMMA = 0.35, 0.50, 0.15
+    if w1_lbp is not None and w1_hog is not None:
+        cos_lbp   = cosine(w1_lbp, w2_lbp)
+        d_lbp     = float(np.linalg.norm(w1_lbp - w2_lbp))
+        score_lbp = float(max(0, cos_lbp)) * float(np.exp(-0.05 * d_lbp))
+
+        cos_hog   = cosine(w1_hog, w2_hog)
+        d_hog     = float(np.linalg.norm(w1_hog - w2_hog))
+        score_hog = float(max(0, cos_hog)) * float(np.exp(-0.05 * d_hog))
+
+        composite = (ALPHA * score_lbp + BETA * score_hog + GAMMA * score_pix) / (ALPHA + BETA + GAMMA)
+    else:
+        cos_lbp = cos_hog = score_lbp = score_hog = None
+        composite = score_pix
+
+    ssim      = ssim_simple(f1, f2)
+    cos_pixel = cosine(f1 / (np.linalg.norm(f1) + 1e-8), f2 / (np.linalg.norm(f2) + 1e-8))
 
     def sv_info(S):
         total = np.sum(S**2)
         return [
-            {"rank": int(i+1), "value": float(S[i]),
-             "variance_pct": float(S[i]**2 / total * 100)}
+            {"rank": int(i+1), "value": float(S[i]), "variance_pct": float(S[i]**2 / total * 100)}
             for i in range(min(15, len(S)))
         ]
 
+    metrics = {
+        "cosine_similarity_eigenspace" : round(cos_eigen, 4),
+        "euclidean_distance_eigenspace": round(euc_d, 4),
+        "euclidean_similarity_norm"    : round(euc_sim, 4),
+        "ssim_pixel"                   : round(ssim, 4),
+        "cosine_similarity_pixel"      : round(cos_pixel, 4),
+        "composite_score"              : round(composite, 4),
+        "feature_mode"                 : mode,
+    }
+    if score_lbp is not None:
+        metrics["score_lbp"] = round(score_lbp, 4)
+        metrics["score_hog"] = round(score_hog, 4)
+        metrics["score_pix"] = round(score_pix, 4)
+
     return {
-        "metrics": {
-            "cosine_similarity_eigenspace": round(cos_eigen, 4),
-            "euclidean_distance_eigenspace": round(euc_d, 4),
-            "euclidean_similarity_norm": round(euc_sim, 4),
-            "ssim_pixel": round(ssim, 4),
-            "cosine_similarity_pixel": round(cos_pixel, 4),
-            "composite_score": round(composite, 4),
-        },
-        "eigenvalues": [float(v) for v in eigenvalues],
-        "weights_face1": [float(v) for v in w1[:15]],
-        "weights_face2": [float(v) for v in w2[:15]],
-        "singular_values_face1": sv_info(S1),
-        "singular_values_face2": sv_info(S2),
-        "singular_values_joint": [float(v) for v in S_joint[:15]],
+        "metrics"                 : metrics,
+        "eigenvalues"             : [float(v) for v in eigenvalues],
+        "weights_face1"           : [float(v) for v in w1[:15]],
+        "weights_face2"           : [float(v) for v in w2[:15]],
+        "singular_values_face1"   : sv_info(S1),
+        "singular_values_face2"   : sv_info(S2),
+        "singular_values_joint"   : [float(v) for v in S_joint[:15]],
     }
 
 
