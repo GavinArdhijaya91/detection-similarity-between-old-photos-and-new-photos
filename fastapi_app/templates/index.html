@@ -133,7 +133,7 @@
           </div>
         </div>
 
-        <!-- Analyze Button -->
+        <!-- Tombol "Analyze" -->
         <div class="mt-6">
           <button id="btn-analyze" onclick="analyze()" disabled class="w-full inline-flex items-center justify-center rounded-xl text-base font-bold transition-all px-6 py-4 bg-gradient-to-t from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-500/25 hover:from-indigo-500 hover:to-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed group">
             <svg id="spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -144,14 +144,14 @@
           </button>
         </div>
 
-        <!-- Error box -->
+        <!-- Info Error -->
         <div id="error-box" class="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium hidden"></div>
       </section>
 
-      <!-- Divider -->
+      <!-- Pembagi -->
       <div id="divider" class="border-t py-6 border-gray-800 hidden"></div>
 
-      <!-- Results Section -->
+      <!-- Bagian Hasil -->
       <section id="results" class="hidden animate-fade-in">
         <div class="flex items-center gap-3 text-lg font-bold text-gray-200 mb-6 after:content-[''] after:flex-1 after:h-px after:bg-gray-800">
           🎯 Hasil Analisis
@@ -170,7 +170,7 @@
           </div>
         </div>
 
-        <!-- Metrics Grid -->
+        <!-- Metrik -->
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6" id="metrics-grid"></div>
 
         <!-- Preprocessing Info -->
@@ -179,14 +179,14 @@
           <div class="flex flex-col gap-3" id="prep-info"></div>
         </div>
 
-        <!-- Charts Tabs -->
+        <!-- Grafik -->
         <div class="glass-card p-6 overflow-hidden">
           <div class="flex gap-2 border-b border-gray-800 pb-4 mb-6 overflow-x-auto">
             <button onclick="switchTab('svd')" id="tab-btn-svd" class="px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 whitespace-nowrap">📉 Distribusi Nilai Singular (SVD)</button>
             <button onclick="switchTab('math')" id="tab-btn-math" class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-400 hover:text-gray-200 transition-colors whitespace-nowrap">🧮 Detail Aljabar Linear</button>
           </div>
 
-          <!-- SVD Charts -->
+          <!-- Grafik SVD (Singular Value Decomposition)-->
           <div id="tab-svd" class="block">
             <p class="text-sm text-gray-400 mb-6 max-w-2xl">Visualisasi distribusi 15 nilai singular teratas yang diekstrak dari matriks gambar wajah setelah proses centering. Kurva yang curam menandakan bahwa sebagian besar informasi/energi terkonsentrasi pada beberapa komponen utama.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -201,7 +201,7 @@
             </div>
           </div>
 
-          <!-- Math Tables -->
+          <!-- Tabel Matematika -->
           <div id="tab-math" class="hidden">
             <h4 class="text-sm font-bold text-indigo-300 mb-4">Proyeksi Eigenspace (Weights / Koefisien PCA)</h4>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8" id="weights-list"></div>
@@ -229,11 +229,11 @@
   </div>
 
   <script>
-    // --- State ---
+    // State
     let photos = { 1: null, 2: null };
     let charts = {};
 
-    // --- Upload Handlers ---
+    // Handlers
     function handleFile(input, slot) {
       const file = input.files[0];
       if (file) {

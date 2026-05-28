@@ -1,18 +1,24 @@
+import sys
+import os
+from pathlib import Path
 import base64
 import numpy as np
 import cv2
-import os
-from pathlib import Path
-
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from streamlit_app.core.face_utils import detect_face, crop_face, preprocess_face
+from streamlit_app.core.pca_svd import load_pretrained_eigenspace
+from streamlit_app.core.feature_extractor import analyze_two_faces_with_dataset, analyze_two_faces
+from streamlit_app.core.similarity import compute_all_metrics
 
-app = FastAPI(title="FaceMatch PCA/SVD")
+
+PROJECT_ROOT = Path(__file__).parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+    
+app = FastAPI(title="FaceMatch PCA/SVD API")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
-
-TARGET_SIZE = (64, 64)
-HAAR_FRONTAL = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 
 def get_npz_path():
     paths = [
@@ -30,29 +36,14 @@ PRETRAINED = None
 
 if NPZ_PATH is not None:
     try:
-        data = np.load(NPZ_PATH)
-        PRETRAINED = {
-            "mean_face"      : data['mean_face'],
-            "eigenfaces"     : data['eigenfaces'],
-            "singular_values": data['singular_values'],
-            "feature_mode"   : str(data.get('feature_mode', np.array('pixel'))),
-        }
-        if 'mean_lbp' in data:
-            PRETRAINED["mean_lbp"]          = data['mean_lbp']
-            PRETRAINED["eigenfaces_lbp"]    = data['eigenfaces_lbp']
-            PRETRAINED["singular_values_lbp"] = data['singular_values_lbp']
-            PRETRAINED["feature_mode"]      = "fusion"
-        if 'mean_hog' in data:
-            PRETRAINED["mean_hog"]          = data['mean_hog']
-            PRETRAINED["eigenfaces_hog"]    = data['eigenfaces_hog']
-            PRETRAINED["singular_values_hog"] = data['singular_values_hog']
-        print(f"[OK] Pretrained loaded from {NPZ_PATH} | mode={PRETRAINED['feature_mode']}")
+        PRETRAINED = load_pretrained_eigenspace(str(NPZ_PATH))
+        print(f"[OK] Pretrained loaded from {NPZ_PATH}")
     except Exception as e:
         print(f"[Error] loading .npz: {e}")
 else:
     print("[Error] pretrained_eigenspace.npz not found anywhere!")
 
-def detect_and_crop(contents: str):
+def decode_b64_image(contents: str) -> np.ndarray:
     if "," in contents:
         contents = contents.split(",")[1]
     img_bytes = base64.b64decode(contents)
@@ -60,199 +51,17 @@ def detect_and_crop(contents: str):
     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
     if img is None:
         raise ValueError("Gambar tidak valid")
-    
-    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    cascade = cv2.CascadeClassifier(HAAR_FRONTAL)
-    faces = cascade.detectMultiScale(img_gray, 1.1, 5, minSize=(30, 30))
-    
-    if len(faces) > 0:
-        faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
-        x, y, w, h = faces[0]
-        pad = int(min(w, h) * 0.2)
-        H, W = img_gray.shape
-        x1, y1 = max(0, x - pad), max(0, y - pad)
-        x2, y2 = min(W, x + w + pad), min(H, y + h + pad)
-        return img_gray[y1:y2, x1:x2], True
-    return img_gray, False
+    return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-def apply_elliptical_mask(image: np.ndarray) -> np.ndarray:
-    h, w = image.shape[:2]
-    mask = np.zeros((h, w), dtype=np.uint8)
-    center = (w // 2, h // 2)
-    axes = (int(w * 0.35), int(h * 0.45))
-    cv2.ellipse(mask, center, axes, 0, 0, 360, 255, -1)
-    return cv2.bitwise_and(image, image, mask=mask)
-
-def process_cropped(gray, angle=0.0):
-    if angle != 0.0:
-        h, w = gray.shape[:2]
-        center = (w // 2, h // 2)
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        gray = cv2.warpAffine(gray, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
-
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    gray = clahe.apply(gray)
-        
-    resized = cv2.resize(gray, TARGET_SIZE, interpolation=cv2.INTER_AREA)
-    masked_gray = apply_elliptical_mask(resized)
-    return masked_gray.astype(np.float64) / 255.0
-
-def cosine_sim(a, b):
-    na, nb = np.linalg.norm(a), np.linalg.norm(b)
-    if na == 0 or nb == 0:
-        return 0.0
-    return float(np.dot(a, b) / (na * nb))
-
-def custom_weighted_cosine_sim(w1, w2):
-    weights = np.ones_like(w1)
-    if len(weights) > 3:
-        weights[:3] = 0.2
-    if len(weights) > 15:
-        weights[15:] = 0.5
-        
-    w1_scaled = w1 * weights
-    w2_scaled = w2 * weights
-    return cosine_sim(w1_scaled, w2_scaled)
-
-def ssim_simple(img1, img2):
-    a, b = img1.flatten(), img2.flatten()
-    C1, C2 = 0.01**2, 0.03**2
-    mu1, mu2 = np.mean(a), np.mean(b)
-    s1, s2 = np.var(a), np.var(b)
-    s12 = np.mean((a - mu1) * (b - mu2))
-    num = (2 * mu1 * mu2 + C1) * (2 * s12 + C2)
-    den = (mu1**2 + mu2**2 + C1) * (s1 + s2 + C2)
-    return float(np.clip(num / den if den != 0 else 0, 0, 1))
-
-def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
-    f1, f2 = face1.flatten(), face2.flatten()
-
-    _, S1, _ = np.linalg.svd(face1, full_matrices=False)
-    _, S2, _ = np.linalg.svd(face2, full_matrices=False)
-
-    if PRETRAINED is not None:
-        ef  = PRETRAINED["eigenfaces"]
-        mf  = PRETRAINED["mean_face"]
-        w1  = ef @ (f1 - mf)
-        w2  = ef @ (f2 - mf)
-        S_joint   = PRETRAINED["singular_values"]
-        eigenvalues = (S_joint ** 2) / 2
-        mode = PRETRAINED.get("feature_mode", "pixel")
-    else:
-        stack   = np.stack([f1, f2], axis=0)
-        mf      = np.mean(stack, axis=0)
-        centered = stack - mf
-        _, S_joint, Vt_joint = np.linalg.svd(centered, full_matrices=False)
-        n_comp   = min(2, len(S_joint))
-        ef       = Vt_joint[:n_comp]
-        eigenvalues = (S_joint[:n_comp] ** 2) / 2
-        w1   = ef @ (f1 - mf)
-        w2   = ef @ (f2 - mf)
-        mode = "pixel"
-
-    w1_lbp = w2_lbp = w1_hog = w2_hog = None
-    if PRETRAINED is not None and mode == "fusion":
-        try:
-            from skimage.feature import local_binary_pattern, hog as hog_fn
-            img1_u8 = (face1 * 255).astype(np.uint8)
-            img2_u8 = (face2 * 255).astype(np.uint8)
-
-            lbp1 = local_binary_pattern(img1_u8, P=8, R=1, method='uniform').flatten()
-            lbp2 = local_binary_pattern(img2_u8, P=8, R=1, method='uniform').flatten()
-            lbp1 = lbp1 / (lbp1.max() + 1e-8)
-            lbp2 = lbp2 / (lbp2.max() + 1e-8)
-
-            hog1 = hog_fn(img1_u8, orientations=8, pixels_per_cell=(8,8), cells_per_block=(2,2), block_norm='L2-Hys')
-            hog2 = hog_fn(img2_u8, orientations=8, pixels_per_cell=(8,8), cells_per_block=(2,2), block_norm='L2-Hys')
-
-            ef_lbp = PRETRAINED["eigenfaces_lbp"]
-            mf_lbp = PRETRAINED["mean_lbp"]
-            w1_lbp = ef_lbp @ (lbp1 - mf_lbp)
-            w2_lbp = ef_lbp @ (lbp2 - mf_lbp)
-
-            ef_hog = PRETRAINED["eigenfaces_hog"]
-            mf_hog = PRETRAINED["mean_hog"]
-            w1_hog = ef_hog @ (hog1 - mf_hog)
-            w2_hog = ef_hog @ (hog2 - mf_hog)
-        except Exception as e:
-            print(f"[Warning] Fusion feature extraction failed, fallback to pixel: {e}")
-            w1_lbp = w2_lbp = w1_hog = w2_hog = None
-
-    prio = np.ones_like(w1)
-    if len(prio) > 3:  prio[:3]  = 0.2
-    if len(prio) > 15: prio[15:] = 0.5
-    w1s, w2s = w1 * prio, w2 * prio
-
-    def cosine(a, b):
-        na, nb = np.linalg.norm(a), np.linalg.norm(b)
-        return float(np.dot(a, b) / (na * nb)) if na > 0 and nb > 0 else 0.0
-
-    cos_eigen = cosine(w1s, w2s)
-    euc_d     = float(np.linalg.norm(w1s - w2s))
-    euc_sim   = float(np.exp(-0.05 * euc_d))
-    score_pix = float(max(0, cos_eigen)) * euc_sim
-
-    ALPHA, BETA, GAMMA = 0.35, 0.50, 0.15
-    if w1_lbp is not None and w1_hog is not None:
-        cos_lbp   = cosine(w1_lbp, w2_lbp)
-        d_lbp     = float(np.linalg.norm(w1_lbp - w2_lbp))
-        score_lbp = float(max(0, cos_lbp)) * float(np.exp(-0.05 * d_lbp))
-
-        cos_hog   = cosine(w1_hog, w2_hog)
-        d_hog     = float(np.linalg.norm(w1_hog - w2_hog))
-        score_hog = float(max(0, cos_hog)) * float(np.exp(-0.05 * d_hog))
-
-        composite = (ALPHA * score_lbp + BETA * score_hog + GAMMA * score_pix) / (ALPHA + BETA + GAMMA)
-    else:
-        cos_lbp = cos_hog = score_lbp = score_hog = None
-        composite = score_pix
-
-    ssim      = ssim_simple(f1, f2)
-    cos_pixel = cosine(f1 / (np.linalg.norm(f1) + 1e-8), f2 / (np.linalg.norm(f2) + 1e-8))
-
-    def sv_info(S):
-        total = np.sum(S**2)
-        return [
-            {"rank": int(i+1), "value": float(S[i]), "variance_pct": float(S[i]**2 / total * 100)}
-            for i in range(min(15, len(S)))
-        ]
-
-    metrics = {
-        "cosine_similarity_eigenspace" : round(cos_eigen, 4),
-        "euclidean_distance_eigenspace": round(euc_d, 4),
-        "euclidean_similarity_norm"    : round(euc_sim, 4),
-        "ssim_pixel"                   : round(ssim, 4),
-        "cosine_similarity_pixel"      : round(cos_pixel, 4),
-        "composite_score"              : round(composite, 4),
-        "feature_mode"                 : mode,
-    }
-    if score_lbp is not None:
-        metrics["score_lbp"] = round(score_lbp, 4)
-        metrics["score_hog"] = round(score_hog, 4)
-        metrics["score_pix"] = round(score_pix, 4)
-
-    return {
-        "metrics"                 : metrics,
-        "eigenvalues"             : [float(v) for v in eigenvalues],
-        "weights_face1"           : [float(v) for v in w1[:15]],
-        "weights_face2"           : [float(v) for v in w2[:15]],
-        "singular_values_face1"   : sv_info(S1),
-        "singular_values_face2"   : sv_info(S2),
-        "singular_values_joint"   : [float(v) for v in S_joint[:15]],
-    }
-
-
-def make_decision(composite: float, cos_eigen: float, threshold: float = 0.60):
+def make_decision(composite: float, threshold: float = 0.60):
     is_same = composite >= threshold
-
     if   composite >= 0.85: level, confidence, color = "Sangat Mirip", "Sangat Tinggi", "#10b981"
     elif composite >= 0.75: level, confidence, color = "Mirip", "Tinggi", "#22c55e"
     elif composite >= 0.65: level, confidence, color = "Cukup Mirip", "Sedang", "#f59e0b"
     elif composite >= 0.50: level, confidence, color = "Kurang Mirip", "Rendah", "#f97316"
     else:                   level, confidence, color = "Tidak Mirip", "Sangat Rendah", "#ef4444"
-    
     return {
+        "score": composite,
         "is_same_person": bool(is_same),
         "verdict":      "Orang yang Sama" if is_same else "Orang yang Berbeda",
         "verdict_icon": "✅" if is_same else "❌",
@@ -260,10 +69,17 @@ def make_decision(composite: float, cos_eigen: float, threshold: float = 0.60):
         "threshold_used": threshold,
     }
 
+def sv_info(S):
+    total = np.sum(np.array(S)**2) if len(S) > 0 else 1
+    return [
+        {"rank": int(i+1), "value": float(S[i]), "variance_pct": float(S[i]**2 / total * 100)}
+        for i in range(min(15, len(S)))
+    ]
+
+# --- ENDPOINTS ---
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
-
 
 @app.post("/api/analyze")
 async def analyze(request: Request):
@@ -279,47 +95,91 @@ async def analyze(request: Request):
         if not image1_b64 or not image2_b64:
             return JSONResponse({"error": "Kedua gambar diperlukan"}, status_code=400)
 
-        crop1, detected1 = detect_and_crop(image1_b64)
-        crop2, detected2 = detect_and_crop(image2_b64)
+        gray1 = decode_b64_image(image1_b64)
+        gray2 = decode_b64_image(image2_b64)
 
-        face1 = process_cropped(crop1, angle=0.0)
+        bbox1 = detect_face(gray1)
+        bbox2 = detect_face(gray2)
 
+        # Fallback to entire image if no face detected
+        if not bbox1:
+            H1, W1 = gray1.shape
+            bbox1 = (0, 0, W1, H1)
+        if not bbox2:
+            H2, W2 = gray2.shape
+            bbox2 = (0, 0, W2, H2)
+
+        # Loop pre-processing and comparison with multiple angles
         best_cos = -1.0
         best_result = None
+        best_metrics = None
+
+        face1_proc, _ = preprocess_face(gray1, bbox1, forced_angle=0.0)
 
         for angle in [0.0, -10.0, 10.0, -5.0, 5.0]:
-            f2 = process_cropped(crop2, angle=angle)
-            res = run_pca_svd(face1, f2)
-            c = res["metrics"]["cosine_similarity_eigenspace"]
+            f2_proc, _ = preprocess_face(gray2, bbox2, forced_angle=angle)
+            
+            if PRETRAINED is not None:
+                res = analyze_two_faces_with_dataset(face1_proc, f2_proc, PRETRAINED)
+            else:
+                res = analyze_two_faces(face1_proc, f2_proc)
+            
+            w1 = res["weights_face1"]
+            w2 = res["weights_face2"]
+            S_joint = res["singular_values_joint"]
+
+            # Prepare fusion arguments if available
+            fusion_args = {}
+            if "weights_face1_lbp" in res:
+                fusion_args["weights1_lbp"] = res["weights_face1_lbp"]
+                fusion_args["weights2_lbp"] = res["weights_face2_lbp"]
+                fusion_args["weights1_hog"] = res["weights_face1_hog"]
+                fusion_args["weights2_hog"] = res["weights_face2_hog"]
+                fusion_args["S_lbp"] = res.get("singular_values_lbp")
+                fusion_args["S_hog"] = res.get("singular_values_hog")
+
+            mets = compute_all_metrics(
+                w1, w2, 
+                res["face1_resized"], res["face2_resized"], 
+                S_joint, 
+                penalty_factor=0.05, 
+                **fusion_args
+            )
+
+            c = mets["cosine_similarity_eigenspace"]
             if c > best_cos:
                 best_cos = c
                 best_result = res
+                best_metrics = mets
 
-        result = best_result
-        decision = make_decision(
-            result["metrics"]["composite_score"],
-            result["metrics"]["cosine_similarity_eigenspace"],
-            threshold,
-        )
+        decision = make_decision(best_metrics["composite_score"], threshold)
+
+        # Build Response
+        S1 = best_result["svd_face1"]["S"]
+        S2 = best_result["svd_face2"]["S"]
+        S_joint_array = np.array(best_result["singular_values_joint"])
+        eigenvalues = (S_joint_array ** 2) / 2
 
         return JSONResponse({
             "success": True,
             "decision": decision,
-            "metrics": result["metrics"],
+            "metrics": best_metrics,
             "math_data": {
-                "eigenvalues":           result["eigenvalues"],
-                "weights_face1":         result["weights_face1"],
-                "weights_face2":         result["weights_face2"],
-                "singular_values_face1": result["singular_values_face1"],
-                "singular_values_face2": result["singular_values_face2"],
-                "singular_values_joint": result["singular_values_joint"],
+                "eigenvalues":           [float(v) for v in eigenvalues],
+                "weights_face1":         [float(v) for v in best_result["weights_face1"][:15]],
+                "weights_face2":         [float(v) for v in best_result["weights_face2"][:15]],
+                "singular_values_face1": sv_info(S1),
+                "singular_values_face2": sv_info(S2),
+                "singular_values_joint": [float(v) for v in best_result["singular_values_joint"][:15]],
             },
             "preprocessing": {
-                "face1_detected": detected1,
-                "face2_detected": detected2,
-                "image_size": f"{TARGET_SIZE[0]}×{TARGET_SIZE[1]}",
+                "face1_detected": bool(bbox1),
+                "face2_detected": bool(bbox2),
+                "image_size": f"128x128",
             },
         })
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JSONResponse({"error": str(e), "success": False}, status_code=500)
