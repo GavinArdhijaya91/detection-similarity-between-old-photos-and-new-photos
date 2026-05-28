@@ -51,24 +51,26 @@ def compute_all_metrics(
     weights2_lbp: np.ndarray = None,
     weights1_hog: np.ndarray = None,
     weights2_hog: np.ndarray = None,
+    S_lbp: np.ndarray = None,
+    S_hog: np.ndarray = None,
     alpha: float = 0.35,
     beta: float = 0.50,
     gamma: float = 0.15,
 ) -> Dict[str, float]:
-    prio = np.ones_like(weights1)
-    if len(prio) > 3:
-        prio[:3] = 0.2
-    if len(prio) > 15:
-        prio[15:] = 0.5
 
-    w1s, w2s  = weights1 * prio, weights2 * prio
-    cos_eigen = cosine_similarity(w1s, w2s)
-    euc_d     = float(np.linalg.norm(w1s - w2s))
+    s_j = S_joint if S_joint is not None else np.ones_like(weights1)
+    w1s = weights1 / (s_j + 1e-8)
+    w2s = weights2 / (s_j + 1e-8)
+    
+    cos_eigen = float(cosine_similarity(w1s, w2s))
+ 
+    euc_d     = float(np.linalg.norm(weights1 - weights2))
     euc_sim   = float(np.exp(-penalty_factor * euc_d))
+    
     score_pix = float(max(0, cos_eigen)) * euc_sim
 
     ssim      = ssim_simple(face1_display, face2_display)
-    cos_pixel = cosine_similarity(face1_display.flatten(), face2_display.flatten())
+    cos_pixel = float(cosine_similarity(face1_display.flatten(), face2_display.flatten()))
 
     result = {
         "cosine_similarity_eigenspace" : round(cos_eigen, 4),
@@ -85,11 +87,21 @@ def compute_all_metrics(
     )
 
     if is_fusion:
-        cos_lbp   = float(cosine_similarity(weights1_lbp, weights2_lbp))
+        # Mahalanobis Whitening untuk LBP
+        s_lbp = S_lbp if S_lbp is not None else np.ones_like(weights1_lbp)
+        w1_lbp_s = weights1_lbp / (s_lbp + 1e-8)
+        w2_lbp_s = weights2_lbp / (s_lbp + 1e-8)
+        
+        cos_lbp   = float(cosine_similarity(w1_lbp_s, w2_lbp_s))
         d_lbp     = float(np.linalg.norm(weights1_lbp - weights2_lbp))
         score_lbp = float(max(0, cos_lbp)) * float(np.exp(-penalty_factor * d_lbp))
 
-        cos_hog   = float(cosine_similarity(weights1_hog, weights2_hog))
+        # Mahalanobis Whitening untuk HOG
+        s_hog = S_hog if S_hog is not None else np.ones_like(weights1_hog)
+        w1_hog_s = weights1_hog / (s_hog + 1e-8)
+        w2_hog_s = weights2_hog / (s_hog + 1e-8)
+        
+        cos_hog   = float(cosine_similarity(w1_hog_s, w2_hog_s))
         d_hog     = float(np.linalg.norm(weights1_hog - weights2_hog))
         score_hog = float(max(0, cos_hog)) * float(np.exp(-penalty_factor * d_hog))
 

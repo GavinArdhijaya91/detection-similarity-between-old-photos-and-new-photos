@@ -63,17 +63,15 @@ streamlit run app.py
 
 Buka browser: `http://localhost:8501`
 
-### ▲ Versi Vercel (Next.js)
+### Versi Vercel
 
-**Development lokal:**
 ```bash
-cd vercel_app
-npm install
-npm run dev
+cd fastapi_app
+uvicorn main:app
 ```
-Buka browser: `http://localhost:3000`
 
-**Deploy ke Vercel:**
+### Deploy ke Vercel:
+
 ```bash
 npm install -g vercel
 vercel --prod

@@ -513,7 +513,17 @@ if file1 and file2:
             w2 = res["weights_face2"]
             S_joint = res["singular_values_joint"]
 
-            mets = compute_all_metrics(w1, w2, f1_disp, f2_disp, S_joint, penalty_factor=penalty_factor)
+            # Prepare fusion arguments if available
+            fusion_args = {}
+            if "weights_face1_lbp" in res:
+                fusion_args["weights1_lbp"] = res["weights_face1_lbp"]
+                fusion_args["weights2_lbp"] = res["weights_face2_lbp"]
+                fusion_args["weights1_hog"] = res["weights_face1_hog"]
+                fusion_args["weights2_hog"] = res["weights_face2_hog"]
+                fusion_args["S_lbp"] = res.get("singular_values_lbp")
+                fusion_args["S_hog"] = res.get("singular_values_hog")
+
+            mets = compute_all_metrics(w1, w2, f1_disp, f2_disp, S_joint, penalty_factor=penalty_factor, **fusion_args)
             
             if mets["cosine_similarity_eigenspace"] > best_cos:
                 best_cos = mets["cosine_similarity_eigenspace"]
@@ -784,13 +794,23 @@ if file1 and file2:
     - Jumlah Eigenfaces (k): {len(w1)}
     
     ## Metrik Ekstraksi (Aljabar Linear)
-    - Cosine Similarity (Eigenspace): {metrics['cosine_similarity_eigenspace']:.4f}
-    - Euclidean Distance (Eigenspace): {metrics['euclidean_distance_eigenspace']:.4f}
-    - Euclidean Similarity (Norm): {metrics['euclidean_similarity_norm']:.4f}
+    - Cosine Similarity (Eigenspace PCA): {metrics.get('cosine_similarity_eigenspace', 0):.4f}
+    - Euclidean Distance (Eigenspace): {metrics.get('euclidean_distance_eigenspace', 0):.4f}
+    - Euclidean Similarity (Norm): {metrics.get('euclidean_similarity_norm', 0):.4f}
+    """
     
+    if "cosine_lbp" in metrics:
+        report_text += f"""
+    ## Metrik Fusion (LBP + HOG)
+    - Cosine LBP (Tekstur): {metrics.get('cosine_lbp', 0):.4f}  => Score: {metrics.get('score_lbp', 0):.4f}
+    - Cosine HOG (Bentuk): {metrics.get('cosine_hog', 0):.4f}  => Score: {metrics.get('score_hog', 0):.4f}
+    - Score Pixel (Intensitas): {metrics.get('score_pix', 0):.4f}
+        """
+
+    report_text += f"""
     ## Metrik Piksel Dasar
-    - Cosine Similarity (Pixel): {metrics['cosine_similarity_pixel']:.4f}
-    - SSIM: {metrics['ssim_pixel']:.4f}
+    - Cosine Similarity (Pixel): {metrics.get('cosine_similarity_pixel', 0):.4f}
+    - SSIM: {metrics.get('ssim_pixel', 0):.4f}
     
     ## Kesimpulan Akhir
     - Composite Score: {decision['score']:.4f} ({(decision['score']*100):.1f}%)
