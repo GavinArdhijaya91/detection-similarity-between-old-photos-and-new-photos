@@ -50,9 +50,11 @@ def detect_eyes_and_angle(gray_crop: np.ndarray) -> Tuple[float, bool]:
     return 0.0, False
 
 
-def crop_face(gray_image: np.ndarray, bbox: Tuple[int, int, int, int], padding: float = 0.2) -> np.ndarray:
+def crop_face(gray_image: np.ndarray, bbox: Tuple[int, int, int, int], padding: float = -0.08) -> np.ndarray:
     x, y, w, h = bbox
     H, W = gray_image.shape
+    # padding negatif berarti kita MEMOTONG ke dalam (mengecilkan kotak)
+    # Ini disebut "Inner-Face Cropping" untuk membuang background dan rambut
     x1 = max(0, x - int(w * padding))
     y1 = max(0, y - int(h * padding))
     x2 = min(W, x + w + int(w * padding))
@@ -125,11 +127,9 @@ def preprocess_face(
         face_crop = apply_gaussian_blur(face_crop)
 
     resized = cv2.resize(face_crop, target_size, interpolation=cv2.INTER_AREA)
+    info["steps"]["final"] = resized.copy()
     
-    masked_gray = apply_elliptical_mask(resized)
-    info["steps"]["final"] = masked_gray.copy()
-    
-    normalized = masked_gray.astype(np.float64) / 255.0
+    normalized = resized.astype(np.float64) / 255.0
     return normalized, info
 
 
