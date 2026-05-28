@@ -454,234 +454,234 @@ if use_dataset and dataset_data and eigenspace:
         > Kombinasi dari semua eigenface merepresentasikan "bahasa" wajah manusia.
         """)
 
-    st.markdown(f'<div class="section-title">📸 {T.get("upload_title", "Upload Foto")}</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="section-title">📸 {T.get("upload_title", "Upload Foto")}</div>', unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2, gap="large")
-    with col1:
-        st.markdown(f'<div style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;margin-bottom:0.5rem">📷 {T["upload_old"]}</div>', unsafe_allow_html=True)
-        file1 = st.file_uploader(T["upload_old"], type=["jpg","jpeg","png","bmp","webp"],
-                                  key="photo_old", label_visibility="collapsed")
-    with col2:
-        st.markdown(f'<div style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;margin-bottom:0.5rem">📱 {T["upload_new"]}</div>', unsafe_allow_html=True)
-        file2 = st.file_uploader(T["upload_new"], type=["jpg","jpeg","png","bmp","webp"],
-                                  key="photo_new", label_visibility="collapsed")
+col1, col2 = st.columns(2, gap="large")
+with col1:
+    st.markdown(f'<div style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;margin-bottom:0.5rem">📷 {T["upload_old"]}</div>', unsafe_allow_html=True)
+    file1 = st.file_uploader(T["upload_old"], type=["jpg","jpeg","png","bmp","webp"],
+                              key="photo_old", label_visibility="collapsed")
+with col2:
+    st.markdown(f'<div style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;margin-bottom:0.5rem">📱 {T["upload_new"]}</div>', unsafe_allow_html=True)
+    file2 = st.file_uploader(T["upload_new"], type=["jpg","jpeg","png","bmp","webp"],
+                              key="photo_new", label_visibility="collapsed")
 
-    if file1 and file2:
-        with st.spinner("Memproses gambar & menjalankan PCA/SVD..."):
-            pil1 = Image.open(file1)
-            pil2 = Image.open(file2)
+if file1 and file2:
+    with st.spinner("Memproses gambar & menjalankan PCA/SVD..."):
+        pil1 = Image.open(file1)
+        pil2 = Image.open(file2)
 
-            gray1 = load_image_from_pil(pil1)
-            gray2 = load_image_from_pil(pil2)
+        gray1 = load_image_from_pil(pil1)
+        gray2 = load_image_from_pil(pil2)
 
-            target_sz = (target_size_sel, target_size_sel)
+        target_sz = (target_size_sel, target_size_sel)
 
-            face1_proc, info1 = preprocess_face(gray1, detect=detect_face_opt, target_size=target_sz)
+        face1_proc, info1 = preprocess_face(gray1, detect=detect_face_opt, target_size=target_sz)
 
-            best_cos = -1.0
-            best_metrics = None
-            best_decision = None
-            best_face2_proc = None
-            best_info2 = None
-            best_result = None
+        best_cos = -1.0
+        best_metrics = None
+        best_decision = None
+        best_face2_proc = None
+        best_info2 = None
+        best_result = None
 
-            bbox2 = None
-            if detect_face_opt:
-                bbox2 = detect_face(gray2)
+        bbox2 = None
+        if detect_face_opt:
+            bbox2 = detect_face(gray2)
 
-            temp_f2, temp_i2 = preprocess_face(gray2, detect=detect_face_opt, target_size=target_sz, pre_bbox=bbox2)
+        temp_f2, temp_i2 = preprocess_face(gray2, detect=detect_face_opt, target_size=target_sz, pre_bbox=bbox2)
+        
+        angles_to_try = [0.0, -10.0, 10.0, -5.0, 5.0]
+        if temp_i2.get("eye_aligned"):
+            angles_to_try = [temp_i2["angle_used"]]
+
+        for angle in angles_to_try:
+            f2_proc, i2 = preprocess_face(gray2, detect=detect_face_opt, target_size=target_sz, force_angle=angle if not temp_i2.get("eye_aligned") else None, pre_bbox=bbox2)
             
-            angles_to_try = [0.0, -10.0, 10.0, -5.0, 5.0]
-            if temp_i2.get("eye_aligned"):
-                angles_to_try = [temp_i2["angle_used"]]
-
-            for angle in angles_to_try:
-                f2_proc, i2 = preprocess_face(gray2, detect=detect_face_opt, target_size=target_sz, force_angle=angle if not temp_i2.get("eye_aligned") else None, pre_bbox=bbox2)
+            if use_dataset and eigenspace is not None:
+                res = analyze_two_faces_with_dataset(face1_proc, f2_proc, eigenspace)
+                f1_disp = res["face1_resized"]
+                f2_disp = res["face2_resized"]
+                m_label = "Dataset: " + dataset_data.get("source", "")[:40]
+            else:
+                res = analyze_two_faces(face1_proc, f2_proc)
+                f1_disp = face1_proc
+                f2_disp = f2_proc
+                m_label = "Mode: 2 gambar saja (tanpa dataset)"
                 
-                if use_dataset and eigenspace is not None:
-                    res = analyze_two_faces_with_dataset(face1_proc, f2_proc, eigenspace)
-                    f1_disp = res["face1_resized"]
-                    f2_disp = res["face2_resized"]
-                    m_label = "Dataset: " + dataset_data.get("source", "")[:40]
-                else:
-                    res = analyze_two_faces(face1_proc, f2_proc)
-                    f1_disp = face1_proc
-                    f2_disp = f2_proc
-                    m_label = "Mode: 2 gambar saja (tanpa dataset)"
-                    
-                w1 = res["weights_face1"]
-                w2 = res["weights_face2"]
-                S_joint = res["singular_values_joint"]
+            w1 = res["weights_face1"]
+            w2 = res["weights_face2"]
+            S_joint = res["singular_values_joint"]
 
-                mets = compute_all_metrics(w1, w2, f1_disp, f2_disp, S_joint, penalty_factor=penalty_factor)
-                
-                if mets["cosine_similarity_eigenspace"] > best_cos:
-                    best_cos = mets["cosine_similarity_eigenspace"]
-                    best_metrics = mets
-                    best_result = res
-                    best_face2_proc = f2_proc
-                    best_info2 = i2
-                    mode_label = f"{m_label} | Rotasi: {i2.get('angle_used', 0.0):.1f}°"
-
-            face2_proc = best_face2_proc
-            info2 = best_info2
-            result = best_result
-            metrics = best_metrics
-            decision = make_decision(metrics, threshold=threshold)
+            mets = compute_all_metrics(w1, w2, f1_disp, f2_disp, S_joint, penalty_factor=penalty_factor)
             
-            face1_display = result["face1_resized"] if use_dataset else face1_proc
-            face2_display = result["face2_resized"] if use_dataset else face2_proc
-            
-            w1 = result["weights_face1"]
-            w2 = result["weights_face2"]
-            U1, S1, Vt1 = result["svd_face1"]["U"], result["svd_face1"]["S"], result["svd_face1"]["Vt"]
-            U2, S2, Vt2 = result["svd_face2"]["U"], result["svd_face2"]["S"], result["svd_face2"]["Vt"]
+            if mets["cosine_similarity_eigenspace"] > best_cos:
+                best_cos = mets["cosine_similarity_eigenspace"]
+                best_metrics = mets
+                best_result = res
+                best_face2_proc = f2_proc
+                best_info2 = i2
+                mode_label = f"{m_label} | Rotasi: {i2.get('angle_used', 0.0):.1f}°"
 
-        st.markdown(f'<div class="section-title">🛠️ {T.get("sec_prep", "Preprocessing Pipeline")}</div>', unsafe_allow_html=True)
+        face2_proc = best_face2_proc
+        info2 = best_info2
+        result = best_result
+        metrics = best_metrics
+        decision = make_decision(metrics, threshold=threshold)
         
-        def render_preprocessing_steps(info_dict, label):
-            st.markdown(f"**{label}** (Sudut Rotasi: `{info_dict.get('angle_used', 0.0):.2f}°` | Eye Aligned: `{'Ya' if info_dict.get('eye_aligned') else 'Tidak'}`)")
-            steps = info_dict.get("steps", {})
-            
-            step_names = ["Original", "Crop", "Aligned", "Equalized", "Final"]
-            step_keys = ["original_gray", "crop", "aligned", "equalized", "final"]
-            
-            cols = st.columns(len(step_names))
-            for i, (name, key) in enumerate(zip(step_names, step_keys)):
-                if key in steps:
-                    img = steps[key]
-                    disp = (img - img.min()) / (img.max() - img.min() + 1e-8) if img.dtype == np.float64 else img
-                    with cols[i]:
-                        st.image(disp, caption=f"{i+1}. {name}", use_container_width=True, clamp=True)
-                        if i < len(step_names) - 1 and key != "final":
-                            st.markdown("<div style='text-align:center;color:#6366f1'>⬇️</div>", unsafe_allow_html=True)
-
-        render_preprocessing_steps(info1, "Pipeline Foto Lama")
-        st.divider()
-        render_preprocessing_steps(info2, "Pipeline Foto Baru")
-
-        import pandas as pd
-        st.markdown(f'<div class="section-title">🔢 {T.get("sec_01", "Section 01: Pixel Matrix Representation")}</div>', unsafe_allow_html=True)
-        st.markdown(f"*{T.get('sec_01_desc', 'Menampilkan sub-matriks 16x16 piksel dari pojok kiri atas gambar wajah (setelah pre-processing).')}*")
+        face1_display = result["face1_resized"] if use_dataset else face1_proc
+        face2_display = result["face2_resized"] if use_dataset else face2_proc
         
-        col_mat1, col_mat2 = st.columns(2)
-        with col_mat1:
-            st.markdown(f"**{T['upload_old']}**")
-            sub_mat1 = face1_display[:16, :16]
-            df1 = pd.DataFrame(sub_mat1)
-            st.dataframe(df1.style.background_gradient(cmap='gray', vmin=0.0, vmax=1.0), height=300)
-            st.caption(f"Shape: {face1_display.shape} | Min: {face1_display.min():.2f} | Max: {face1_display.max():.2f} | Mean: {face1_display.mean():.2f} | Std: {face1_display.std():.2f}")
+        w1 = result["weights_face1"]
+        w2 = result["weights_face2"]
+        U1, S1, Vt1 = result["svd_face1"]["U"], result["svd_face1"]["S"], result["svd_face1"]["Vt"]
+        U2, S2, Vt2 = result["svd_face2"]["U"], result["svd_face2"]["S"], result["svd_face2"]["Vt"]
 
-        with col_mat2:
-            st.markdown(f"**{T['upload_new']}**")
-            sub_mat2 = face2_display[:16, :16]
-            df2 = pd.DataFrame(sub_mat2)
-            st.dataframe(df2.style.background_gradient(cmap='gray', vmin=0.0, vmax=1.0), height=300)
-            st.caption(f"Shape: {face2_display.shape} | Min: {face2_display.min():.2f} | Max: {face2_display.max():.2f} | Mean: {face2_display.mean():.2f} | Std: {face2_display.std():.2f}")
-
-        st.markdown(f'<div class="section-title">📊 {T.get("sec_02", "Section 02: PCA & Eigenspace")}</div>', unsafe_allow_html=True)
-        if use_dataset and eigenspace is not None:
-            st.latex(r"C = \frac{1}{n-1}X^TX \qquad C \cdot v = \lambda \cdot v")
-            st.markdown(f"*{T.get('sec_02_desc', 'Proyeksi wajah ke dalam Eigenspace yang dibangun dari dataset.')}*")
-
-            ev_df = pd.DataFrame({
-                "Principal Component": [f"PC{i+1}" for i in range(min(10, len(eigenspace["explained_variance_ratio"])))],
-                "Eigenvalue (\u03bb)": [S_joint[i]**2 for i in range(min(10, len(S_joint)))],
-                "Explained Variance (%)": [eigenspace["explained_variance_ratio"][i]*100 for i in range(min(10, len(eigenspace["explained_variance_ratio"])))]
-            })
-            
-            col_pca1, col_pca2 = st.columns([1, 2])
-            with col_pca1:
-                st.markdown("**Top 10 Eigenvalues (\u03bb)**")
-                st.dataframe(ev_df, use_container_width=True)
-            with col_pca2:
-                st.markdown("**Scree Plot (Explained Variance)**")
-                make_dark_plot()
-                fig, ax = plt.subplots(figsize=(8, 3))
-                ax.plot(range(1, len(ev_df)+1), ev_df["Explained Variance (%)"], marker='o', linestyle='-', color='#6366f1')
-                ax.set_xlabel("Principal Component")
-                ax.set_ylabel("Variance (%)")
-                ax.grid(True, alpha=0.3)
-                st.pyplot(fig, use_container_width=True)
-                plt.close(fig)
-        else:
-            st.warning("Eigenspace tidak tersedia. Pastikan Anda memilih Dataset pada Sidebar untuk melihat PCA yang valid.")
-
-        st.markdown(f'<div class="section-title">🖼️ {T.get("sec_03", "Section 03: SVD Reconstruction")}</div>', unsafe_allow_html=True)
-        st.markdown(f"*{T.get('sec_03_desc', 'Dekomposisi SVD dan rekonstruksi matriks dengan $k$ komponen.')}*")
+    st.markdown(f'<div class="section-title">🛠️ {T.get("sec_prep", "Preprocessing Pipeline")}</div>', unsafe_allow_html=True)
+    
+    def render_preprocessing_steps(info_dict, label):
+        st.markdown(f"**{label}** (Sudut Rotasi: `{info_dict.get('angle_used', 0.0):.2f}°` | Eye Aligned: `{'Ya' if info_dict.get('eye_aligned') else 'Tidak'}`)")
+        steps = info_dict.get("steps", {})
         
-        k_recon = st.slider("Nilai k untuk Rekonstruksi SVD", 1, min(len(S1), 50), 10)
+        step_names = ["Original", "Crop", "Aligned", "Equalized", "Final"]
+        step_keys = ["original_gray", "crop", "aligned", "equalized", "final"]
         
-        def reconstruct_svd(U, S, Vt, k):
-            return U[:, :k] @ np.diag(S[:k]) @ Vt[:k, :]
-            
-        def display_svd_recon(face, U, S, Vt, label):
-            recon = reconstruct_svd(U, S, Vt, k_recon)
-            frob_error = np.linalg.norm(face - recon, ord='fro')
-            
-            c1, c2 = st.columns(2)
-            with c1:
-                disp_face = (face - face.min()) / (face.max() - face.min() + 1e-8)
-                st.image(disp_face, caption=f"Asli ({label})", use_container_width=True, clamp=True)
-            with c2:
-                disp_recon = (recon - recon.min()) / (recon.max() - recon.min() + 1e-8)
-                st.image(disp_recon, caption=f"Rekonstruksi k={k_recon}", use_container_width=True, clamp=True)
-            st.caption(f"Error Frobenius ($|| A - A_k ||_F$): {frob_error:.4f}")
+        cols = st.columns(len(step_names))
+        for i, (name, key) in enumerate(zip(step_names, step_keys)):
+            if key in steps:
+                img = steps[key]
+                disp = (img - img.min()) / (img.max() - img.min() + 1e-8) if img.dtype == np.float64 else img
+                with cols[i]:
+                    st.image(disp, caption=f"{i+1}. {name}", use_container_width=True, clamp=True)
+                    if i < len(step_names) - 1 and key != "final":
+                        st.markdown("<div style='text-align:center;color:#6366f1'>⬇️</div>", unsafe_allow_html=True)
 
-            make_dark_plot()
-            fig, ax = plt.subplots(figsize=(4, 2))
-            ax.plot(range(1, min(21, len(S)+1)), S[:20], marker='.', color='#10b981')
-            ax.set_title("Top 20 Singular Values", fontsize=8, color="#f1f5f9")
-            ax.set_ylabel("\u03c3", fontsize=7)
-            ax.tick_params(axis='both', which='major', labelsize=6)
-            st.pyplot(fig, use_container_width=True)
-            plt.close(fig)
+    render_preprocessing_steps(info1, "Pipeline Foto Lama")
+    st.divider()
+    render_preprocessing_steps(info2, "Pipeline Foto Baru")
 
-        col_svd1, col_svd2 = st.columns(2)
-        with col_svd1:
-            display_svd_recon(face1_display, U1, S1, Vt1, T['upload_old'])
-        with col_svd2:
-            display_svd_recon(face2_display, U2, S2, Vt2, T['upload_new'])
+    import pandas as pd
+    st.markdown(f'<div class="section-title">🔢 {T.get("sec_01", "Section 01: Pixel Matrix Representation")}</div>', unsafe_allow_html=True)
+    st.markdown(f"*{T.get('sec_01_desc', 'Menampilkan sub-matriks 16x16 piksel dari pojok kiri atas gambar wajah (setelah pre-processing).')}*")
+    
+    col_mat1, col_mat2 = st.columns(2)
+    with col_mat1:
+        st.markdown(f"**{T['upload_old']}**")
+        sub_mat1 = face1_display[:16, :16]
+        df1 = pd.DataFrame(sub_mat1)
+        st.dataframe(df1.style.background_gradient(cmap='gray', vmin=0.0, vmax=1.0), height=300)
+        st.caption(f"Shape: {face1_display.shape} | Min: {face1_display.min():.2f} | Max: {face1_display.max():.2f} | Mean: {face1_display.mean():.2f} | Std: {face1_display.std():.2f}")
 
-        st.markdown(f'<div class="section-title">📐 {T.get("sec_04", "Section 04: Vector Projection")}</div>', unsafe_allow_html=True)
-        st.markdown(f"*{T.get('sec_04_desc', 'Bobot proyeksi PCA ke dalam Eigenspace.')}*")
-        
-        proj_df = pd.DataFrame({
-            "Component": [f"w_{i+1}" for i in range(min(10, len(w1)))],
-            T['upload_old']: w1[:10],
-            T['upload_new']: w2[:10],
+    with col_mat2:
+        st.markdown(f"**{T['upload_new']}**")
+        sub_mat2 = face2_display[:16, :16]
+        df2 = pd.DataFrame(sub_mat2)
+        st.dataframe(df2.style.background_gradient(cmap='gray', vmin=0.0, vmax=1.0), height=300)
+        st.caption(f"Shape: {face2_display.shape} | Min: {face2_display.min():.2f} | Max: {face2_display.max():.2f} | Mean: {face2_display.mean():.2f} | Std: {face2_display.std():.2f}")
+
+    st.markdown(f'<div class="section-title">📊 {T.get("sec_02", "Section 02: PCA & Eigenspace")}</div>', unsafe_allow_html=True)
+    if use_dataset and eigenspace is not None:
+        st.latex(r"C = \frac{1}{n-1}X^TX \qquad C \cdot v = \lambda \cdot v")
+        st.markdown(f"*{T.get('sec_02_desc', 'Proyeksi wajah ke dalam Eigenspace yang dibangun dari dataset.')}*")
+
+        ev_df = pd.DataFrame({
+            "Principal Component": [f"PC{i+1}" for i in range(min(10, len(eigenspace["explained_variance_ratio"])))],
+            "Eigenvalue (\u03bb)": [S_joint[i]**2 for i in range(min(10, len(S_joint)))],
+            "Explained Variance (%)": [eigenspace["explained_variance_ratio"][i]*100 for i in range(min(10, len(eigenspace["explained_variance_ratio"])))]
         })
         
-        c_proj1, c_proj2 = st.columns([1, 2])
-        with c_proj1:
-            st.dataframe(proj_df, use_container_width=True)
-        with c_proj2:
+        col_pca1, col_pca2 = st.columns([1, 2])
+        with col_pca1:
+            st.markdown("**Top 10 Eigenvalues (\u03bb)**")
+            st.dataframe(ev_df, use_container_width=True)
+        with col_pca2:
+            st.markdown("**Scree Plot (Explained Variance)**")
             make_dark_plot()
-            fig, ax = plt.subplots(figsize=(6, 3))
-            width = 0.35
-            x = np.arange(len(proj_df))
-            ax.bar(x - width/2, proj_df[T['upload_old']], width, label=T['upload_old'], color='#6366f1')
-            ax.bar(x + width/2, proj_df[T['upload_new']], width, label=T['upload_new'], color='#f43f5e')
-            ax.set_xticks(x)
-            ax.set_xticklabels(proj_df["Component"], rotation=45, ha='right', fontsize=7)
-            ax.legend(fontsize=7)
+            fig, ax = plt.subplots(figsize=(8, 3))
+            ax.plot(range(1, len(ev_df)+1), ev_df["Explained Variance (%)"], marker='o', linestyle='-', color='#6366f1')
+            ax.set_xlabel("Principal Component")
+            ax.set_ylabel("Variance (%)")
+            ax.grid(True, alpha=0.3)
             st.pyplot(fig, use_container_width=True)
             plt.close(fig)
+    else:
+        st.warning("Eigenspace tidak tersedia. Pastikan Anda memilih Dataset pada Sidebar untuk melihat PCA yang valid.")
 
-        if len(w1) >= 2 and len(w2) >= 2:
-            make_dark_plot()
-            fig, ax = plt.subplots(figsize=(5, 3))
-            ax.scatter(w1[0], w1[1], c='#6366f1', s=100, label=T['upload_old'], zorder=3)
-            ax.scatter(w2[0], w2[1], c='#f43f5e', s=100, label=T['upload_new'], zorder=3)
-            ax.plot([w1[0], w2[0]], [w1[1], w2[1]], 'w--', alpha=0.5, zorder=2)
-            ax.plot([0, w1[0]], [0, w1[1]], color='#6366f1', alpha=0.3, zorder=1)
-            ax.plot([0, w2[0]], [0, w2[1]], color='#f43f5e', alpha=0.3, zorder=1)
-            ax.scatter(0, 0, c='white', marker='x', s=50, label='Origin (Mean Face)')
-            ax.set_xlabel("PC1 (w_1)")
-            ax.set_ylabel("PC2 (w_2)")
-            ax.legend(fontsize=7)
-            st.pyplot(fig, use_container_width=False)
-            plt.close(fig)
+    st.markdown(f'<div class="section-title">🖼️ {T.get("sec_03", "Section 03: SVD Reconstruction")}</div>', unsafe_allow_html=True)
+    st.markdown(f"*{T.get('sec_03_desc', 'Dekomposisi SVD dan rekonstruksi matriks dengan $k$ komponen.')}*")
+    
+    k_recon = st.slider("Nilai k untuk Rekonstruksi SVD", 1, min(len(S1), 50), 10)
+    
+    def reconstruct_svd(U, S, Vt, k):
+        return U[:, :k] @ np.diag(S[:k]) @ Vt[:k, :]
+        
+    def display_svd_recon(face, U, S, Vt, label):
+        recon = reconstruct_svd(U, S, Vt, k_recon)
+        frob_error = np.linalg.norm(face - recon, ord='fro')
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            disp_face = (face - face.min()) / (face.max() - face.min() + 1e-8)
+            st.image(disp_face, caption=f"Asli ({label})", use_container_width=True, clamp=True)
+        with c2:
+            disp_recon = (recon - recon.min()) / (recon.max() - recon.min() + 1e-8)
+            st.image(disp_recon, caption=f"Rekonstruksi k={k_recon}", use_container_width=True, clamp=True)
+        st.caption(f"Error Frobenius ($|| A - A_k ||_F$): {frob_error:.4f}")
+
+        make_dark_plot()
+        fig, ax = plt.subplots(figsize=(4, 2))
+        ax.plot(range(1, min(21, len(S)+1)), S[:20], marker='.', color='#10b981')
+        ax.set_title("Top 20 Singular Values", fontsize=8, color="#f1f5f9")
+        ax.set_ylabel("\u03c3", fontsize=7)
+        ax.tick_params(axis='both', which='major', labelsize=6)
+        st.pyplot(fig, use_container_width=True)
+        plt.close(fig)
+
+    col_svd1, col_svd2 = st.columns(2)
+    with col_svd1:
+        display_svd_recon(face1_display, U1, S1, Vt1, T['upload_old'])
+    with col_svd2:
+        display_svd_recon(face2_display, U2, S2, Vt2, T['upload_new'])
+
+    st.markdown(f'<div class="section-title">📐 {T.get("sec_04", "Section 04: Vector Projection")}</div>', unsafe_allow_html=True)
+    st.markdown(f"*{T.get('sec_04_desc', 'Bobot proyeksi PCA ke dalam Eigenspace.')}*")
+    
+    proj_df = pd.DataFrame({
+        "Component": [f"w_{i+1}" for i in range(min(10, len(w1)))],
+        T['upload_old']: w1[:10],
+        T['upload_new']: w2[:10],
+    })
+    
+    c_proj1, c_proj2 = st.columns([1, 2])
+    with c_proj1:
+        st.dataframe(proj_df, use_container_width=True)
+    with c_proj2:
+        make_dark_plot()
+        fig, ax = plt.subplots(figsize=(6, 3))
+        width = 0.35
+        x = np.arange(len(proj_df))
+        ax.bar(x - width/2, proj_df[T['upload_old']], width, label=T['upload_old'], color='#6366f1')
+        ax.bar(x + width/2, proj_df[T['upload_new']], width, label=T['upload_new'], color='#f43f5e')
+        ax.set_xticks(x)
+        ax.set_xticklabels(proj_df["Component"], rotation=45, ha='right', fontsize=7)
+        ax.legend(fontsize=7)
+        st.pyplot(fig, use_container_width=True)
+        plt.close(fig)
+
+    if len(w1) >= 2 and len(w2) >= 2:
+        make_dark_plot()
+        fig, ax = plt.subplots(figsize=(5, 3))
+        ax.scatter(w1[0], w1[1], c='#6366f1', s=100, label=T['upload_old'], zorder=3)
+        ax.scatter(w2[0], w2[1], c='#f43f5e', s=100, label=T['upload_new'], zorder=3)
+        ax.plot([w1[0], w2[0]], [w1[1], w2[1]], 'w--', alpha=0.5, zorder=2)
+        ax.plot([0, w1[0]], [0, w1[1]], color='#6366f1', alpha=0.3, zorder=1)
+        ax.plot([0, w2[0]], [0, w2[1]], color='#f43f5e', alpha=0.3, zorder=1)
+        ax.scatter(0, 0, c='white', marker='x', s=50, label='Origin (Mean Face)')
+        ax.set_xlabel("PC1 (w_1)")
+        ax.set_ylabel("PC2 (w_2)")
+        ax.legend(fontsize=7)
+        st.pyplot(fig, use_container_width=False)
+        plt.close(fig)
 
     st.markdown(f'<div class="section-title">🎯 {T.get("sec_05", "Section 05: Primary Similarity Results")}</div>', unsafe_allow_html=True)
 
