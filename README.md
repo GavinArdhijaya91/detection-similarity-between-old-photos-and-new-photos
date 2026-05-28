@@ -1,14 +1,14 @@
 [![Vercel](https://img.shields.io/badge/vercel-%23000000.svg?style=for-the-badge&logo=vercel&logoColor=white)](https://detection-similarity-between-old-ph.vercel.app/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-%23FE4B4B.svg?style=for-the-badge&logo=streamlit&logoColor=white)](https://face-verification-v1.streamlit.app/)
 
-# 🔬 FaceMatch — Deteksi Kemiripan Foto Menggunakan PCA & SVD
+# FaceMatch — Deteksi Kemiripan Foto Menggunakan PCA & SVD
 
-> **Tugas Mata Kuliah Aljabar Linear — Semester 2**  
+> **Tugas Mata Kuliah Aljabar Linear Semester 2**  
 > Implementasi *Eigenfaces* untuk mendeteksi kemiripan antara foto lama (masa kecil) dan foto baru (saat ini).
 
 ---
 
-## 📐 Konsep Aljabar Linear yang Diimplementasikan
+## Konsep Aljabar Linear yang Diimplementasikan
 
 | Konsep | Penerapan |
 |--------|-----------|
@@ -22,7 +22,7 @@
 
 ---
 
-## 🏗️ Arsitektur Folder
+## Arsitektur Folder
 
 ```
 detection-similarity-between-old-photos-and-new-photos/
@@ -30,30 +30,30 @@ detection-similarity-between-old-photos-and-new-photos/
 ├── streamlit_app/              ← 🐍 Versi Streamlit (lokal)
 │   ├── app.py                  ← Entry point utama
 │   ├── core/
-│   │   ├── pca_svd.py          ← Logika PCA & SVD (NumPy murni)
-│   │   ├── face_utils.py       ← Preprocessing OpenCV
-│   │   └── similarity.py       ← Cosine similarity, SSIM, composite score
+│   │   ├── face_utils.py          ← Logika PCA & SVD (NumPy murni)
+│   │   ├── feature_extractor.py       ← Preprocessing OpenCV
+│   │   └── pca_svd.py       ← Cosine similarity, SSIM, composite score
+|   |   └── similarity.py       ← Cosine similarity, SSIM, composite score
 │   └── requirements.txt
 │
-├── vercel_app/                 ← ▲ Versi Vercel (Next.js)
-│   ├── pages/
-│   │   ├── _app.tsx
-│   │   └── index.tsx           ← Halaman utama dengan visualisasi
-│   ├── api/
-│   │   └── analyze.py          ← Python serverless function
-│   ├── styles/globals.css      ← Design system premium dark
-│   ├── package.json
-│   ├── requirements.txt
-│   └── vercel.json
+├── fastapi_app/            
+│   ├── templates/
+│   │   └── index.html          ← Halaman utama dengan visualisasi
+|   ├── main.py
+|
+├── api/            
+│   ├── index.py
 │
 └── README.md
+└── LICENSE
+└── vercel.json
 ```
 
 ---
 
-## 🚀 Cara Menjalankan
+## Cara Menjalankan
 
-### 🐍 Versi Streamlit (Lokal)
+### Versi Streamlit (Lokal)
 
 ```bash
 cd streamlit_app
@@ -81,7 +81,7 @@ vercel --prod
 
 ---
 
-## 🔬 Cara Kerja Pipeline
+## Cara Kerja Pipeline
 
 ```
 Foto Lama  ──┐
@@ -114,7 +114,7 @@ Foto Baru  ──┘
 
 ---
 
-## 📦 Dependencies
+## Dependencies
 
 ### Python (Streamlit & API)
 | Library | Peran |
@@ -135,7 +135,7 @@ Foto Baru  ──┘
 
 ---
 
-## ❓ Mengapa Tidak Perlu Dataset?
+## Mengapa Tidak Perlu Dataset?
 
 PCA & SVD bukan model machine learning — ini adalah **operasi matematika murni**.  
 - ❌ Tidak perlu data training ribuan foto  
@@ -146,7 +146,7 @@ Berbeda dengan deep learning (FaceNet, ArcFace) yang butuh jutaan foto untuk tra
 
 ---
 
-## 📊 Interpretasi Skor
+## Interpretasi Skor
 
 | Composite Score | Level | Interpretasi |
 |----------------|-------|--------------|

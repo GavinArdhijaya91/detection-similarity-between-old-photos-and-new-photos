@@ -31,9 +31,6 @@ def custom_weighted_cosine_sim(w1: np.ndarray, w2: np.ndarray) -> float:
     return cosine_similarity(w1_scaled, w2_scaled)
 
 def ssim_simple(img1: np.ndarray, img2: np.ndarray) -> float:
-    """
-    Calculates Structural Similarity Index (SSIM) roughly for pixel-based comparison.
-    """
     a, b = img1.flatten(), img2.flatten()
     C1, C2 = 0.01**2, 0.03**2
     mu1, mu2 = np.mean(a), np.mean(b)
@@ -58,20 +55,6 @@ def compute_all_metrics(
     beta: float = 0.50,
     gamma: float = 0.15,
 ) -> Dict[str, float]:
-    """
-    Menghitung semua metrik kemiripan.
-
-    Mode Pixel-only (backward compatible):
-      composite = cos_pixel_weighted * exp(-penalty * d_euc)
-
-    Mode LBP+HOG+Pixel Fusion:
-      score_lbp = cos_lbp * exp(-penalty * d_lbp)
-      score_hog = cos_hog * exp(-penalty * d_hog)
-      score_pix = cos_pix * exp(-penalty * d_pix)
-      composite = (alpha*score_lbp + beta*score_hog + gamma*score_pix) / (alpha+beta+gamma)
-
-    Default bobot: alpha=0.35 (LBP), beta=0.50 (HOG), gamma=0.15 (Pixel)
-    """
     prio = np.ones_like(weights1)
     if len(prio) > 3:
         prio[:3] = 0.2

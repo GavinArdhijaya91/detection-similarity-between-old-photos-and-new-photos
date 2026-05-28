@@ -12,7 +12,7 @@ def get_singular_values_info(S: np.ndarray) -> dict:
     total_energy     = np.sum(S ** 2)
     explained_var    = (S ** 2) / total_energy * 100
     cumulative_var   = np.cumsum(explained_var)
-    return {7
+    return {
         "singular_values"       : S,
         "explained_variance_pct": explained_var,
         "cumulative_variance_pct": cumulative_var,
@@ -125,10 +125,6 @@ def load_custom_selfie_dataset(base_path: str, target_size: Tuple[int, int] = (6
 
 
 def load_pretrained_eigenspace(filepath: str) -> Optional[Dict]:
-    """
-    Memuat pretrained eigenspace dari file .npz.
-    Backward-compatible: mendukung format lama (pixel-only) dan format baru (LBP+HOG+Pixel fusion).
-    """
     import os
     if not os.path.exists(filepath):
         return None
@@ -223,19 +219,6 @@ def build_eigenspace_from_dataset(
     n_components: int = 50,
     target_size: Tuple[int, int] = (64, 64),
 ) -> dict:
-    """
-    Melatih eigenspace dari dataset.
-    Jika dataset mengandung 'lbp_features' dan 'hog_features', melatih 3 PCA terpisah (Fusion Mode).
-    Jika tidak, hanya melatih 1 PCA dari piksel (Pixel Mode).
-
-    Args:
-        dataset     : Dict dari load_custom_selfie_dataset() atau load_olivetti_dataset()
-        n_components: Jumlah komponen PCA yang dilatih
-        target_size : Ukuran gambar training
-
-    Returns:
-        dict berisi semua eigenspace yang sudah dilatih
-    """
     images = dataset if isinstance(dataset, np.ndarray) else dataset.get("images")
     ef     = compute_eigenfaces(images, n_components=n_components)
     cumvar = np.cumsum(ef["explained_variance_ratio"])

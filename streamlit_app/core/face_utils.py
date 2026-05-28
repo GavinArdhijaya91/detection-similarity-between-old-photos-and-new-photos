@@ -65,10 +65,6 @@ def apply_gaussian_blur(image: np.ndarray, kernel_size: int = 3) -> np.ndarray:
 
 
 def apply_elliptical_mask(image: np.ndarray) -> np.ndarray:
-    """
-    Applies an elliptical mask to remove background, hair, and ear edges.
-    Forces the PCA model to focus purely on internal facial features.
-    """
     h, w = image.shape[:2]
     mask = np.zeros((h, w), dtype=np.uint8)
     center = (w // 2, h // 2)
@@ -86,10 +82,6 @@ def preprocess_face(
     force_angle: Optional[float] = None,
     pre_bbox: Optional[Tuple[int, int, int, int]] = None
 ) -> Tuple[np.ndarray, dict]:
-    """
-    Complete preprocessing pipeline: Detection, Rotation, CLAHE, Resize, Sobel, and Elliptical Masking.
-    Now captures step-by-step images for visualization.
-    """
     info = {
         "face_detected": False, 
         "bbox": None, 
@@ -106,13 +98,11 @@ def preprocess_face(
             info["bbox"] = bbox
             face_crop = crop_face(gray_image, bbox)
             info["steps"]["crop"] = face_crop.copy()
-            
-    # Determine angle
+
     angle_to_use = 0.0
     if force_angle is not None:
         angle_to_use = force_angle
     elif info["face_detected"]:
-        # Try automatic eye detection alignment
         detected_angle, eye_success = detect_eyes_and_angle(face_crop)
         if eye_success:
             angle_to_use = detected_angle

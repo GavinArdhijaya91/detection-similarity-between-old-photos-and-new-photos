@@ -126,10 +126,6 @@ def ssim_simple(img1, img2):
     return float(np.clip(num / den if den != 0 else 0, 0, 1))
 
 def run_pca_svd(face1: np.ndarray, face2: np.ndarray):
-    """
-    Proyeksikan dua wajah ke Eigenspace dan hitung semua metrik.
-    Mendukung mode Pixel-only dan LBP+HOG+Pixel Fusion secara otomatis.
-    """
     f1, f2 = face1.flatten(), face2.flatten()
 
     _, S1, _ = np.linalg.svd(face1, full_matrices=False)
